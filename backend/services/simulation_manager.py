@@ -470,12 +470,33 @@ class ContinuousSimulationManager:
         server_loads = routing_result.get("serverLoads", {}) if routing_result else {}
         server_util_pct = routing_result.get("serverUtilPct", {}) if routing_result else {}
 
-        # Parse congestion spec if present (format: "region:server:delayMs")
+        # Parse congestion spec if present (format: "region:server:delayMs", "Pune-Pune:35:1.5", or scenario name)
         cong_map = {}
         if congestion_spec and congestion_spec != "none":
-            parts = congestion_spec.split(":")
-            if len(parts) == 3:
-                cong_map[(parts[0], parts[1])] = float(parts[2])
+            if ":" in congestion_spec:
+                parts = congestion_spec.split(":")
+                if len(parts) >= 2:
+                    if "-" in parts[0]:
+                        reg, srv = parts[0].split("-")
+                        srv_full = srv if srv.endswith("Server") else f"{srv} Server"
+                        delay = float(parts[1])
+                        cong_map[(reg, srv_full)] = delay
+                    elif len(parts) >= 3:
+                        reg = parts[0]
+                        srv = parts[1]
+                        srv_full = srv if srv.endswith("Server") else f"{srv} Server"
+                        delay = float(parts[2])
+                        cong_map[(reg, srv_full)] = delay
+            elif "pune" in congestion_spec.lower():
+                cong_map[("Pune", "Pune Server")] = 35.0
+
+        # Also inspect C++ returned congested links
+        congested_links = routing_result.get("congestedLinks", []) if routing_result else []
+        for cl in congested_links:
+            if "->" in cl:
+                c_reg, c_srv = cl.split("->")
+                if (c_reg, c_srv) not in cong_map:
+                    cong_map[(c_reg, c_srv)] = 35.0
 
         server_order = ["Pune Server", "Mumbai Server", "Delhi Server", "Bangalore Server", "Origin Server"]
 
@@ -497,19 +518,7 @@ class ContinuousSimulationManager:
                 # Server metrics
                 server_healthy = (server not in failed_servers)
                 server_total_cap = srv_info["capacity"]
-                server_load = server_loads.get(server, 0.0)
-                server_util = server_util_pct.get(server, 0.0)
-                if not server_healthy:
-                    server_remaining = 0.0
-                elif is_origin:
-                    server_remaining = 999999.0
-                else:
-                    server_remaining = max(0.0, server_total_cap - server_load)
-
-                # Link metrics
-                cong_delay = cong_map.get(link_key, 0.0)
-                eff_latency = link_info["base_latency"] + cong_delay
-                bw_cap = link_info["bw_capacity"]
+                total_server_load = server_loads.get(server, 0.0)
 
                 # Find allocated flow from this region to this server
                 flow_allocated = 0.0
@@ -517,10 +526,53 @@ class ContinuousSimulationManager:
                     if a.get("from") == region and a.get("to") == server:
                         flow_allocated += a.get("flow", 0.0)
 
-                remaining_bw = max(0.0, bw_cap - flow_allocated)
-                link_util = (flow_allocated / bw_cap * 100.0) if bw_cap > 0 else 0.0
+                # Four explicit server capacity values (Requirement 1):
+                # 1. Existing load before this region's decision
+                # 2. New traffic allocated by this decision
+                # 3. Projected load after this decision
+                # 4. Remaining capacity after allocation
+                server_existing_load = max(0.0, total_server_load - flow_allocated) if not is_origin else 0.0
+                server_new_allocated = flow_allocated
+                server_projected_load = (server_existing_load + server_new_allocated) if not is_origin else flow_allocated
+                if not server_healthy:
+                    server_remaining_cap = 0.0
+                elif is_origin:
+                    server_remaining_cap = 999999.0
+                else:
+                    server_remaining_cap = max(0.0, server_total_cap - server_projected_load)
 
-                # Multi-factor cost formula: C = alpha * L + beta * B + (1 - H) * M
+                server_projected_util_pct = (server_projected_load / server_total_cap * 100.0) if (not is_origin and server_total_cap > 0) else 0.0
+
+                # Four explicit network link bandwidth values (Requirement 1):
+                # 1. Existing link load before this decision
+                # 2. New traffic allocated on this link
+                # 3. Projected link load
+                # 4. Remaining link bandwidth
+                bw_cap = link_info["bw_capacity"]
+                link_existing_load = 0.0  # Dedicated direct region-to-server link
+                link_new_allocated = flow_allocated
+                link_projected_load = link_existing_load + link_new_allocated
+                link_remaining_bw = max(0.0, bw_cap - link_projected_load) if not is_origin else 999999.0
+                link_projected_util_pct = (link_projected_load / bw_cap * 100.0) if (not is_origin and bw_cap > 0) else 0.0
+
+                # Congestion & Latency explanation (Requirement 2):
+                cong_delay = cong_map.get(link_key, 0.0)
+                eff_latency = link_info["base_latency"] + cong_delay
+                if cong_delay > 0.0:
+                    bg_network_util = min(99.5, 60.0 + (cong_delay / 35.0) * 39.0)
+                    cong_source = f"Injected transit carrier queueing / fiber delay on {region} -> {server} interconnect (+{cong_delay:.1f} ms added delay)"
+                    eff_lat_formula = f"{link_info['base_latency']:.1f} ms (base fiber) + {cong_delay:.1f} ms (transit queueing) = {eff_latency:.1f} ms"
+                else:
+                    bg_network_util = 15.0
+                    cong_source = "Nominal (Clear fiber transmission; 0.0 ms carrier queueing delay)"
+                    eff_lat_formula = f"{link_info['base_latency']:.1f} ms (base fiber) + 0.0 ms = {eff_latency:.1f} ms"
+
+                # Feasible capacity headroom available to this region:
+                available_link_for_region = link_remaining_bw + link_new_allocated if not is_origin else 999999.0
+                available_server_for_region = server_remaining_cap + server_new_allocated if not is_origin else 999999.0
+                max_allocatable_traffic = min(available_link_for_region, available_server_for_region) if not is_origin else reg_demand
+
+                # Multi-factor cost formula: C = alpha * L + beta * B + (1 - H) * M (Requirement 4)
                 alpha = 1.0
                 beta = 1.5
                 miss_penalty = 20.0
@@ -531,30 +583,33 @@ class ContinuousSimulationManager:
                 cache_miss_term = round((1.0 - hit_ratio) * miss_penalty, 2)
 
                 if is_origin:
-                    unit_cost = 177.50  # 100ms * 1.0 + 5.0 * 1.5 + 20.0 miss + 50 compute penalty
+                    unit_cost = 177.50
                     scaled_cost = 17750
-                    formula_str = "C_origin = 1.0*(100.0) + 1.5*(5.0) + 20.0 [miss] + 50.0 [compute] = 177.50"
+                    formula_str = "C_origin = 1.0*(100.0 ms) + 1.5*(5.0 rate) + 20.0 [miss] + 50.0 [compute penalty] = $177.50 / req"
                 else:
                     unit_cost = round(latency_term + bandwidth_term + cache_miss_term, 2)
                     scaled_cost = int(round(unit_cost * 100))
-                    formula_str = f"C = {alpha}*({eff_latency:.1f}) + {beta}*({link_info['cost']:.1f}) + (1-{hit_ratio:.2f})*20 = {unit_cost:.2f}"
+                    formula_str = f"C = {alpha}*({eff_latency:.1f}) + {beta}*({link_info['cost']:.1f}) + (1-{hit_ratio:.2f})*{miss_penalty:.0f} = ${unit_cost:.2f} / req"
 
-                # Hard Constraints & Eligibility
+                # Hard Constraints, Partial Feasibility & Eligibility (Requirement 3):
                 if not server_healthy:
                     eligibility = "EXCLUDED_OUTAGE"
-                    exclusion_reason = "Server offline due to hardware outage"
-                elif not is_origin and server_remaining <= 0.001:
-                    eligibility = "EXCLUDED_CAPACITY"
-                    exclusion_reason = "Server processing capacity completely saturated"
-                elif remaining_bw <= 0.001:
-                    eligibility = "EXCLUDED_BANDWIDTH"
-                    exclusion_reason = "Link transit bandwidth capacity exhausted"
+                    exclusion_reason = "Server offline due to hardware outage (Available capacity = 0 req/s)"
                 elif is_origin:
                     eligibility = "ORIGIN_FALLBACK"
-                    exclusion_reason = "Origin fallback (activated when edge capacity is exhausted)"
+                    exclusion_reason = "Origin fallback tier (activated only when edge POP capacity is exhausted)"
+                elif available_server_for_region <= 0.001:
+                    eligibility = "EXCLUDED_CAPACITY"
+                    exclusion_reason = "Server processing capacity completely saturated by competing ingress traffic"
+                elif available_link_for_region <= 0.001:
+                    eligibility = "EXCLUDED_BANDWIDTH"
+                    exclusion_reason = "Link transit bandwidth capacity fully exhausted"
+                elif max_allocatable_traffic < (reg_demand - 0.5):
+                    eligibility = "PARTIALLY_FEASIBLE"
+                    exclusion_reason = f"Candidate can only absorb part of regional demand (Max feasible: {round(max_allocatable_traffic):,} req/s of {round(reg_demand):,} req/s)"
                 else:
                     eligibility = "ELIGIBLE"
-                    exclusion_reason = "Candidate route eligible (healthy link and available server capacity)"
+                    exclusion_reason = f"Candidate fully feasible for 100% of demand (Headroom: {round(max_allocatable_traffic):,} req/s)"
 
                 alloc_pct = round((flow_allocated / reg_demand * 100.0), 1) if reg_demand > 0 else 0.0
                 total_cost = round(flow_allocated * unit_cost, 2)
@@ -565,17 +620,25 @@ class ContinuousSimulationManager:
                     "is_origin": is_origin,
                     "server_healthy": server_healthy,
                     "server_total_capacity": server_total_cap,
-                    "server_existing_load": round(server_load, 1),
-                    "server_remaining_capacity": round(server_remaining, 1),
-                    "server_utilization_pct": round(server_util, 1),
+                    "server_existing_load": round(server_existing_load, 1),
+                    "server_new_allocated": round(server_new_allocated, 1),
+                    "server_projected_load": round(server_projected_load, 1),
+                    "server_remaining_capacity": round(server_remaining_cap, 1),
+                    "server_utilization_pct": round(server_projected_util_pct, 1),
                     "link_base_latency_ms": link_info["base_latency"],
                     "link_congestion_ms": cong_delay,
                     "link_effective_latency_ms": eff_latency,
+                    "link_background_util_pct": round(bg_network_util, 1),
+                    "link_congestion_source": cong_source,
+                    "link_effective_latency_formula": eff_lat_formula,
                     "link_bandwidth_cost": link_info["cost"],
                     "link_bandwidth_capacity": bw_cap,
-                    "link_allocated_flow": round(flow_allocated, 1),
-                    "link_remaining_bandwidth": round(remaining_bw, 1),
-                    "link_utilization_pct": round(link_util, 1),
+                    "link_existing_load": round(link_existing_load, 1),
+                    "link_new_allocated": round(link_new_allocated, 1),
+                    "link_projected_load": round(link_projected_load, 1),
+                    "link_remaining_bandwidth": round(link_remaining_bw, 1),
+                    "link_utilization_pct": round(link_projected_util_pct, 1),
+                    "max_allocatable_traffic": round(max_allocatable_traffic, 1),
                     "cache_hit_ratio": hit_ratio,
                     "cost_formula": {
                         "alpha": alpha,
@@ -589,7 +652,23 @@ class ContinuousSimulationManager:
                         "cache_miss_term": cache_miss_term,
                         "unit_cost": unit_cost,
                         "scaled_cost": scaled_cost,
-                        "formula_string": formula_str
+                        "unit": "$ / req (Simulated routing cost points)",
+                        "formula_string": formula_str,
+                        "hard_constraints": [
+                            f"Server Health: {'Online' if server_healthy else 'Hardware Outage'}",
+                            f"Link Bandwidth Cap: {round(bw_cap):,} req/s",
+                            f"Server Capacity Cap: {round(server_total_cap):,} req/s"
+                        ],
+                        "optimization_terms": [
+                            f"Effective Latency (alpha=1.0): {latency_term:.2f} pts",
+                            f"Transit Bandwidth Rate (beta=1.5): {bandwidth_term:.2f} pts",
+                            f"Cache Miss Penalty (M=20.0): {cache_miss_term:.2f} pts"
+                        ],
+                        "monitoring_metrics": [
+                            f"Projected Server Load: {round(server_projected_load):,} / {round(server_total_cap):,} req/s ({server_projected_util_pct:.1f}%)",
+                            f"Background Network Load: {round(bg_network_util, 1)}%",
+                            f"Pre-Decision Existing Load: {round(server_existing_load):,} req/s"
+                        ]
                     },
                     "eligibility": eligibility,
                     "exclusion_reason": exclusion_reason,

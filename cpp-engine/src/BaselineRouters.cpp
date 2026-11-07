@@ -1,4 +1,5 @@
 #include "../include/BaselineRouters.h"
+#include "../include/EdmondsKarp.h"
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
@@ -798,6 +799,88 @@ StrategyResult BaselineRouters::runMCMF(const Network& network, const CostCalcul
 
     res.totalTrafficRouted = res.edgeTrafficRouted + res.originTrafficRouted;
     res.unservedTraffic = std::max(0.0, res.totalTrafficRequested - res.totalTrafficRouted);
+    res.averageRoutingCostPerReq = (res.totalTrafficRouted > 0.0) ? (res.totalRoutingCost / res.totalTrafficRouted) : 0.0;
+    res.averageLatencyMs = (res.totalTrafficRouted > 0.0) ? (weightedLatency / res.totalTrafficRouted) : 0.0;
+
+    for (const auto& s : network.getServers()) {
+        res.serverUtilPct[s.name] = (s.configuredCapacity > 0.0) ? (res.serverLoads[s.name] / s.configuredCapacity * 100.0) : 0.0;
+    }
+
+    for (const auto& l : network.getLinks()) {
+        std::string linkKey = l.regionName + "->" + l.serverName;
+        res.linkUtilPct[linkKey] = (l.bandwidthCapacity > 0.0) ? (res.linkLoads[linkKey] / l.bandwidthCapacity * 100.0) : 0.0;
+    }
+
+    return res;
+}
+
+StrategyResult BaselineRouters::runEdmondsKarp(const Network& network, const CostCalculator& calculator, bool recordTrace) {
+    auto startClock = std::chrono::high_resolution_clock::now();
+
+    Graph flowGraph;
+    flowGraph.buildFromNetwork(network, calculator);
+
+    StrategyResult res;
+    res.strategyName = "Edmonds-Karp";
+
+    EdmondsKarpResult ekRes = EdmondsKarp::calculateMaxFlow(
+        flowGraph, 
+        flowGraph.getSourceId(), 
+        flowGraph.getSinkId(), 
+        recordTrace ? &res.trace : nullptr,
+        network.getTotalTrafficDemand(),
+        calculator.getCostScalingFactor()
+    );
+
+    auto endClock = std::chrono::high_resolution_clock::now();
+
+    res.totalTrafficRequested = network.getTotalTrafficDemand();
+    res.executionTimeMicroseconds = std::chrono::duration_cast<std::chrono::microseconds>(endClock - startClock).count();
+    res.allocations = MinCostMaxFlow::extractFlowAllocations(flowGraph, calculator.getCostScalingFactor());
+
+    res.edgeTrafficRouted = 0.0;
+    res.originTrafficRouted = 0.0;
+    double weightedLatency = 0.0;
+    double totalCost = 0.0;
+
+    for (const auto& s : network.getServers()) {
+        res.serverLoads[s.name] = 0.0;
+        res.serverUtilPct[s.name] = 0.0;
+    }
+
+    for (const auto& l : network.getLinks()) {
+        std::string linkKey = l.regionName + "->" + l.serverName;
+        res.linkLoads[linkKey] = 0.0;
+        res.linkUtilPct[linkKey] = 0.0;
+    }
+
+    for (const auto& a : res.allocations) {
+        if (a.fromNode == "Source (S)") continue;
+        if (a.toNode == "Sink (T)") continue;
+
+        if (a.toNode.find("Server") != std::string::npos) {
+            res.edgeTrafficRouted += a.flow;
+            res.serverLoads[a.toNode] += a.flow;
+
+            std::string linkKey = a.fromNode + "->" + a.toNode;
+            res.linkLoads[linkKey] += a.flow;
+
+            totalCost += a.totalCostContinuous;
+
+            const NetworkLink* link = network.getLink(a.fromNode, a.toNode);
+            if (link) {
+                weightedLatency += a.flow * link->getEffectiveLatency();
+            }
+        } else if (a.toNode == "Origin" || a.toNode == "Origin Server") {
+            res.originTrafficRouted += a.flow;
+            weightedLatency += a.flow * 100.0; // Origin latency: 100 ms
+            totalCost += a.totalCostContinuous;
+        }
+    }
+
+    res.totalTrafficRouted = res.edgeTrafficRouted + res.originTrafficRouted;
+    res.unservedTraffic = std::max(0.0, res.totalTrafficRequested - res.totalTrafficRouted);
+    res.totalRoutingCost = totalCost;
     res.averageRoutingCostPerReq = (res.totalTrafficRouted > 0.0) ? (res.totalRoutingCost / res.totalTrafficRouted) : 0.0;
     res.averageLatencyMs = (res.totalTrafficRouted > 0.0) ? (weightedLatency / res.totalTrafficRouted) : 0.0;
 

@@ -14,6 +14,10 @@ VALID_STRATEGIES = {
     "greedy cost": "Greedy Cost",
     "greedy_cost": "Greedy Cost",
     "gc": "Greedy Cost",
+    "edmonds-karp": "Edmonds-Karp",
+    "edmonds_karp": "Edmonds-Karp",
+    "edmonds karp": "Edmonds-Karp",
+    "ek": "Edmonds-Karp",
 }
 
 VALID_SCENARIOS = {

@@ -118,6 +118,8 @@ StrategyResult executeStrategy(const std::string& stratName, const Network& net,
         return BaselineRouters::runNearestServer(net, calc, recordTrace);
     } else if (stratName == "Greedy Cost" || stratName == "greedy_cost" || stratName == "gc" || stratName == "Greedy Cost-Based") {
         return BaselineRouters::runGreedyCost(net, calc, recordTrace);
+    } else if (stratName == "Edmonds-Karp" || stratName == "edmonds_karp" || stratName == "ek" || stratName == "Edmonds Karp") {
+        return BaselineRouters::runEdmondsKarp(net, calc, recordTrace);
     } else {
         return BaselineRouters::runMCMF(net, calc, recordTrace);
     }
@@ -130,6 +132,8 @@ std::string getStrategyExplanation(const StrategyResult& res) {
         return "Nearest Server greedily directs regional requests to the edge server with the lowest effective physical latency, falling back to next-closest servers and finally Origin when capacity is saturated.";
     } else if (res.strategyName == "Greedy Cost") {
         return "Greedy Cost computes the composite multi-factor routing cost (latency, bandwidth cost, cache miss penalty) for each eligible region-server link and greedily allocates flow to the cheapest candidate links.";
+    } else if (res.strategyName == "Edmonds-Karp") {
+        return "Edmonds-Karp verifies maximum flow throughput using Breadth-First Search (BFS) to identify shortest augmenting paths with the minimum number of edge hops (O(V * E^2)). NOTE: It guarantees maximum physical capacity delivery across network cuts, but does NOT optimize for minimum financial or latency cost.";
     } else {
         return "Min-Cost Max-Flow utilizes Successive Shortest Path (SSP) with Johnson dual potentials and 4-tier convex server load bands to achieve the mathematically optimal global tradeoff between latency, bandwidth expense, cache efficiency, and server congestion.";
     }

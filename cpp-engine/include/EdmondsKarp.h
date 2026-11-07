@@ -2,6 +2,7 @@
 #define EDMONDS_KARP_H
 
 #include "Graph.h"
+#include "DecisionTrace.h"
 #include <vector>
 #include <string>
 
@@ -68,7 +69,14 @@ public:
      * @param sink Sink node ID.
      * @return EdmondsKarpResult with max flow, iterations, and min-cut analysis.
      */
-    static EdmondsKarpResult calculateMaxFlow(Graph& graph, int source, int sink);
+    static EdmondsKarpResult calculateMaxFlow(
+        Graph& graph, 
+        int source, 
+        int sink, 
+        DecisionTrace* trace = nullptr,
+        double targetDemand = 0.0,
+        long long costScalingFactor = 100
+    );
 
     /**
      * @brief Computes the minimum cut on an already saturated residual graph.

@@ -67,6 +67,11 @@ public:
     static StrategyResult runMCMF(const Network& network, const CostCalculator& calculator, bool recordTrace = false);
 
     /**
+     * @brief Executes Edmonds-Karp maximum flow verification routing.
+     */
+    static StrategyResult runEdmondsKarp(const Network& network, const CostCalculator& calculator, bool recordTrace = false);
+
+    /**
      * @brief Executes all 4 strategies on the network and displays a formatted comparative benchmark matrix.
      */
     static std::vector<StrategyResult> compareAll(const Network& network, 
