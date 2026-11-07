@@ -1,0 +1,49 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\src\Network.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\src\Simulator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\src\CostCalculator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\src\Graph.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\src\Algorithms.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\src\FailureHandler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\src\Router.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\src\EdmondsKarp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\src\CacheOptimizer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\src\DemandForecaster.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\src\BaselineRouters.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\MY_DATA\DAA_cp(final)\cpp-engine\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{DB64ACBA-0220-354B-A863-CF8280B05975}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

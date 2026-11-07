@@ -1,0 +1,10 @@
+^C:\MY_DATA\DAA_CP(FINAL)\CPP-ENGINE\BUILD\CMAKEFILES\C2D26B4519E55E8C1C55EF33CBA6C4D3\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/MY_DATA/DAA_cp(final)/cpp-engine -BC:/MY_DATA/DAA_cp(final)/cpp-engine/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/MY_DATA/DAA_cp(final)/cpp-engine/build/AdaptiveCDNRouter.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

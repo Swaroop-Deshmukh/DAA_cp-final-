@@ -1,0 +1,498 @@
+[
+{
+  "scenario": "Scenario 1: Normal Traffic Baseline",
+  "strategies": [
+    {
+      "strategyName": "Round Robin",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 393338,
+      "averageRoutingCostPerReq": 32.7781,
+      "averageLatencyMs": 20.6875,
+      "executionTimeMicroseconds": 22,
+      "serverUtilPct": {"Bangalore Server": 60, "Delhi Server": 66.6667, "Mumbai Server": 50, "Pune Server": 60},
+      "serverLoads": {"Bangalore Server": 3000, "Delhi Server": 3000, "Mumbai Server": 3000, "Pune Server": 3000}
+    },
+    {
+      "strategyName": "Nearest Server",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 194575,
+      "averageRoutingCostPerReq": 16.2146,
+      "averageLatencyMs": 6.125,
+      "executionTimeMicroseconds": 16,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 44.4444, "Mumbai Server": 58.3333, "Pune Server": 50},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 2000, "Mumbai Server": 3500, "Pune Server": 2500}
+    },
+    {
+      "strategyName": "Greedy Cost",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 194575,
+      "averageRoutingCostPerReq": 16.2146,
+      "averageLatencyMs": 6.125,
+      "executionTimeMicroseconds": 15,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 44.4444, "Mumbai Server": 58.3333, "Pune Server": 50},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 2000, "Mumbai Server": 3500, "Pune Server": 2500}
+    },
+    {
+      "strategyName": "Min-Cost Max-Flow",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 183712,
+      "averageRoutingCostPerReq": 15.3094,
+      "averageLatencyMs": 6.14583,
+      "executionTimeMicroseconds": 42,
+      "serverUtilPct": {"Bangalore Server": 75, "Delhi Server": 44.4444, "Mumbai Server": 58.3333, "Pune Server": 55},
+      "serverLoads": {"Bangalore Server": 3750, "Delhi Server": 2000, "Mumbai Server": 3500, "Pune Server": 2750}
+    }
+  ]
+}
+,
+{
+  "scenario": "Scenario 2: Mumbai Traffic Spike (2.0x)",
+  "strategies": [
+    {
+      "strategyName": "Round Robin",
+      "totalTrafficRequested": 15500,
+      "edgeTrafficRouted": 15500,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 15500,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 562231,
+      "averageRoutingCostPerReq": 36.273,
+      "averageLatencyMs": 19.8548,
+      "executionTimeMicroseconds": 24,
+      "serverUtilPct": {"Bangalore Server": 77.5, "Delhi Server": 86.1111, "Mumbai Server": 64.5833, "Pune Server": 77.5},
+      "serverLoads": {"Bangalore Server": 3875, "Delhi Server": 3875, "Mumbai Server": 3875, "Pune Server": 3875}
+    },
+    {
+      "strategyName": "Nearest Server",
+      "totalTrafficRequested": 15500,
+      "edgeTrafficRouted": 15500,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 15500,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 350175,
+      "averageRoutingCostPerReq": 22.5919,
+      "averageLatencyMs": 6.67742,
+      "executionTimeMicroseconds": 18,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 44.4444, "Mumbai Server": 83.3333, "Pune Server": 90},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 2000, "Mumbai Server": 5000, "Pune Server": 4500}
+    },
+    {
+      "strategyName": "Greedy Cost",
+      "totalTrafficRequested": 15500,
+      "edgeTrafficRouted": 15500,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 15500,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 350175,
+      "averageRoutingCostPerReq": 22.5919,
+      "averageLatencyMs": 6.67742,
+      "executionTimeMicroseconds": 16,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 44.4444, "Mumbai Server": 83.3333, "Pune Server": 90},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 2000, "Mumbai Server": 5000, "Pune Server": 4500}
+    },
+    {
+      "strategyName": "Min-Cost Max-Flow",
+      "totalTrafficRequested": 15500,
+      "edgeTrafficRouted": 15500,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 15500,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 317112,
+      "averageRoutingCostPerReq": 20.4589,
+      "averageLatencyMs": 8.30645,
+      "executionTimeMicroseconds": 57,
+      "serverUtilPct": {"Bangalore Server": 75, "Delhi Server": 75, "Mumbai Server": 77.0833, "Pune Server": 75},
+      "serverLoads": {"Bangalore Server": 3750, "Delhi Server": 3375, "Mumbai Server": 4625, "Pune Server": 3750}
+    }
+  ]
+}
+,
+{
+  "scenario": "Scenario 3: Delhi Server Outage",
+  "strategies": [
+    {
+      "strategyName": "Round Robin",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 402108,
+      "averageRoutingCostPerReq": 33.509,
+      "averageLatencyMs": 17.9306,
+      "executionTimeMicroseconds": 18,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 0, "Mumbai Server": 66.6667, "Pune Server": 80},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 0, "Mumbai Server": 4000, "Pune Server": 4000}
+    },
+    {
+      "strategyName": "Nearest Server",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 315925,
+      "averageRoutingCostPerReq": 26.3271,
+      "averageLatencyMs": 9.79167,
+      "executionTimeMicroseconds": 14,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 0, "Mumbai Server": 91.6667, "Pune Server": 50},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 0, "Mumbai Server": 5500, "Pune Server": 2500}
+    },
+    {
+      "strategyName": "Greedy Cost",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 315925,
+      "averageRoutingCostPerReq": 26.3271,
+      "averageLatencyMs": 9.79167,
+      "executionTimeMicroseconds": 13,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 0, "Mumbai Server": 91.6667, "Pune Server": 50},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 0, "Mumbai Server": 5500, "Pune Server": 2500}
+    },
+    {
+      "strategyName": "Min-Cost Max-Flow",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 265512,
+      "averageRoutingCostPerReq": 22.126,
+      "averageLatencyMs": 10.1458,
+      "executionTimeMicroseconds": 45,
+      "serverUtilPct": {"Bangalore Server": 75, "Delhi Server": 0, "Mumbai Server": 75, "Pune Server": 75},
+      "serverLoads": {"Bangalore Server": 3750, "Delhi Server": 0, "Mumbai Server": 4500, "Pune Server": 3750}
+    }
+  ]
+}
+,
+{
+  "scenario": "Scenario 4: Delhi Server Recovery",
+  "strategies": [
+    {
+      "strategyName": "Round Robin",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 393338,
+      "averageRoutingCostPerReq": 32.7781,
+      "averageLatencyMs": 20.6875,
+      "executionTimeMicroseconds": 21,
+      "serverUtilPct": {"Bangalore Server": 60, "Delhi Server": 66.6667, "Mumbai Server": 50, "Pune Server": 60},
+      "serverLoads": {"Bangalore Server": 3000, "Delhi Server": 3000, "Mumbai Server": 3000, "Pune Server": 3000}
+    },
+    {
+      "strategyName": "Nearest Server",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 194575,
+      "averageRoutingCostPerReq": 16.2146,
+      "averageLatencyMs": 6.125,
+      "executionTimeMicroseconds": 15,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 44.4444, "Mumbai Server": 58.3333, "Pune Server": 50},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 2000, "Mumbai Server": 3500, "Pune Server": 2500}
+    },
+    {
+      "strategyName": "Greedy Cost",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 194575,
+      "averageRoutingCostPerReq": 16.2146,
+      "averageLatencyMs": 6.125,
+      "executionTimeMicroseconds": 14,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 44.4444, "Mumbai Server": 58.3333, "Pune Server": 50},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 2000, "Mumbai Server": 3500, "Pune Server": 2500}
+    },
+    {
+      "strategyName": "Min-Cost Max-Flow",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 183712,
+      "averageRoutingCostPerReq": 15.3094,
+      "averageLatencyMs": 6.14583,
+      "executionTimeMicroseconds": 44,
+      "serverUtilPct": {"Bangalore Server": 75, "Delhi Server": 44.4444, "Mumbai Server": 58.3333, "Pune Server": 55},
+      "serverLoads": {"Bangalore Server": 3750, "Delhi Server": 2000, "Mumbai Server": 3500, "Pune Server": 2750}
+    }
+  ]
+}
+,
+{
+  "scenario": "Scenario 5: Pune Network Link Congestion (+35ms)",
+  "strategies": [
+    {
+      "strategyName": "Round Robin",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 415212,
+      "averageRoutingCostPerReq": 34.601,
+      "averageLatencyMs": 22.5104,
+      "executionTimeMicroseconds": 21,
+      "serverUtilPct": {"Bangalore Server": 60, "Delhi Server": 66.6667, "Mumbai Server": 50, "Pune Server": 60},
+      "serverLoads": {"Bangalore Server": 3000, "Delhi Server": 3000, "Mumbai Server": 3000, "Pune Server": 3000}
+    },
+    {
+      "strategyName": "Nearest Server",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 312825,
+      "averageRoutingCostPerReq": 26.0688,
+      "averageLatencyMs": 7.58333,
+      "executionTimeMicroseconds": 14,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 44.4444, "Mumbai Server": 100, "Pune Server": 0},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 2000, "Mumbai Server": 6000, "Pune Server": 0}
+    },
+    {
+      "strategyName": "Greedy Cost",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 312825,
+      "averageRoutingCostPerReq": 26.0688,
+      "averageLatencyMs": 7.58333,
+      "executionTimeMicroseconds": 15,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 44.4444, "Mumbai Server": 100, "Pune Server": 0},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 2000, "Mumbai Server": 6000, "Pune Server": 0}
+    },
+    {
+      "strategyName": "Min-Cost Max-Flow",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 221075,
+      "averageRoutingCostPerReq": 18.4229,
+      "averageLatencyMs": 8.66667,
+      "executionTimeMicroseconds": 53,
+      "serverUtilPct": {"Bangalore Server": 60, "Delhi Server": 44.4444, "Mumbai Server": 75, "Pune Server": 50},
+      "serverLoads": {"Bangalore Server": 3000, "Delhi Server": 2000, "Mumbai Server": 4500, "Pune Server": 2500}
+    }
+  ]
+}
+,
+{
+  "scenario": "Scenario 6: Demand Exceeding Edge Capacity (24k req/s)",
+  "strategies": [
+    {
+      "strategyName": "Round Robin",
+      "totalTrafficRequested": 24000,
+      "edgeTrafficRouted": 20500,
+      "originTrafficRouted": 3500,
+      "totalTrafficRouted": 24000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 1.5962e+06,
+      "averageRoutingCostPerReq": 66.5083,
+      "averageLatencyMs": 31.7396,
+      "executionTimeMicroseconds": 24,
+      "serverUtilPct": {"Bangalore Server": 100, "Delhi Server": 100, "Mumbai Server": 100, "Pune Server": 100},
+      "serverLoads": {"Bangalore Server": 5000, "Delhi Server": 4500, "Mumbai Server": 6000, "Pune Server": 5000}
+    },
+    {
+      "strategyName": "Nearest Server",
+      "totalTrafficRequested": 24000,
+      "edgeTrafficRouted": 20500,
+      "originTrafficRouted": 3500,
+      "totalTrafficRouted": 24000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 1.28368e+06,
+      "averageRoutingCostPerReq": 53.4865,
+      "averageLatencyMs": 20.9583,
+      "executionTimeMicroseconds": 20,
+      "serverUtilPct": {"Bangalore Server": 100, "Delhi Server": 100, "Mumbai Server": 100, "Pune Server": 100},
+      "serverLoads": {"Bangalore Server": 5000, "Delhi Server": 4500, "Mumbai Server": 6000, "Pune Server": 5000}
+    },
+    {
+      "strategyName": "Greedy Cost",
+      "totalTrafficRequested": 24000,
+      "edgeTrafficRouted": 20500,
+      "originTrafficRouted": 3500,
+      "totalTrafficRouted": 24000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 1.28368e+06,
+      "averageRoutingCostPerReq": 53.4865,
+      "averageLatencyMs": 20.9583,
+      "executionTimeMicroseconds": 19,
+      "serverUtilPct": {"Bangalore Server": 100, "Delhi Server": 100, "Mumbai Server": 100, "Pune Server": 100},
+      "serverLoads": {"Bangalore Server": 5000, "Delhi Server": 4500, "Mumbai Server": 6000, "Pune Server": 5000}
+    },
+    {
+      "strategyName": "Min-Cost Max-Flow",
+      "totalTrafficRequested": 24000,
+      "edgeTrafficRouted": 20500,
+      "originTrafficRouted": 3500,
+      "totalTrafficRouted": 24000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 1.25845e+06,
+      "averageRoutingCostPerReq": 52.4354,
+      "averageLatencyMs": 20.0833,
+      "executionTimeMicroseconds": 64,
+      "serverUtilPct": {"Bangalore Server": 100, "Delhi Server": 100, "Mumbai Server": 100, "Pune Server": 100},
+      "serverLoads": {"Bangalore Server": 5000, "Delhi Server": 4500, "Mumbai Server": 6000, "Pune Server": 5000}
+    }
+  ]
+}
+,
+{
+  "scenario": "Scenario 7: Catastrophic Outage (All Edge Down)",
+  "strategies": [
+    {
+      "strategyName": "Round Robin",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 0,
+      "originTrafficRouted": 12000,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 2.13e+06,
+      "averageRoutingCostPerReq": 177.5,
+      "averageLatencyMs": 100,
+      "executionTimeMicroseconds": 8,
+      "serverUtilPct": {"Bangalore Server": 0, "Delhi Server": 0, "Mumbai Server": 0, "Pune Server": 0},
+      "serverLoads": {"Bangalore Server": 0, "Delhi Server": 0, "Mumbai Server": 0, "Pune Server": 0}
+    },
+    {
+      "strategyName": "Nearest Server",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 0,
+      "originTrafficRouted": 12000,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 2.13e+06,
+      "averageRoutingCostPerReq": 177.5,
+      "averageLatencyMs": 100,
+      "executionTimeMicroseconds": 9,
+      "serverUtilPct": {"Bangalore Server": 0, "Delhi Server": 0, "Mumbai Server": 0, "Pune Server": 0},
+      "serverLoads": {"Bangalore Server": 0, "Delhi Server": 0, "Mumbai Server": 0, "Pune Server": 0}
+    },
+    {
+      "strategyName": "Greedy Cost",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 0,
+      "originTrafficRouted": 12000,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 2.13e+06,
+      "averageRoutingCostPerReq": 177.5,
+      "averageLatencyMs": 100,
+      "executionTimeMicroseconds": 8,
+      "serverUtilPct": {"Bangalore Server": 0, "Delhi Server": 0, "Mumbai Server": 0, "Pune Server": 0},
+      "serverLoads": {"Bangalore Server": 0, "Delhi Server": 0, "Mumbai Server": 0, "Pune Server": 0}
+    },
+    {
+      "strategyName": "Min-Cost Max-Flow",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 0,
+      "originTrafficRouted": 12000,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 2.13e+06,
+      "averageRoutingCostPerReq": 177.5,
+      "averageLatencyMs": 100,
+      "executionTimeMicroseconds": 33,
+      "serverUtilPct": {"Bangalore Server": 0, "Delhi Server": 0, "Mumbai Server": 0, "Pune Server": 0},
+      "serverLoads": {"Bangalore Server": 0, "Delhi Server": 0, "Mumbai Server": 0, "Pune Server": 0}
+    }
+  ]
+}
+,
+{
+  "scenario": "Scenario 8: Cache Hit Ratio Improvement (0.98/0.99)",
+  "strategies": [
+    {
+      "strategyName": "Round Robin",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 390138,
+      "averageRoutingCostPerReq": 32.5115,
+      "averageLatencyMs": 20.6875,
+      "executionTimeMicroseconds": 23,
+      "serverUtilPct": {"Bangalore Server": 60, "Delhi Server": 66.6667, "Mumbai Server": 50, "Pune Server": 60},
+      "serverLoads": {"Bangalore Server": 3000, "Delhi Server": 3000, "Mumbai Server": 3000, "Pune Server": 3000}
+    },
+    {
+      "strategyName": "Nearest Server",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 181775,
+      "averageRoutingCostPerReq": 15.1479,
+      "averageLatencyMs": 6.125,
+      "executionTimeMicroseconds": 17,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 44.4444, "Mumbai Server": 58.3333, "Pune Server": 50},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 2000, "Mumbai Server": 3500, "Pune Server": 2500}
+    },
+    {
+      "strategyName": "Greedy Cost",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 181775,
+      "averageRoutingCostPerReq": 15.1479,
+      "averageLatencyMs": 6.125,
+      "executionTimeMicroseconds": 14,
+      "serverUtilPct": {"Bangalore Server": 80, "Delhi Server": 44.4444, "Mumbai Server": 58.3333, "Pune Server": 50},
+      "serverLoads": {"Bangalore Server": 4000, "Delhi Server": 2000, "Mumbai Server": 3500, "Pune Server": 2500}
+    },
+    {
+      "strategyName": "Min-Cost Max-Flow",
+      "totalTrafficRequested": 12000,
+      "edgeTrafficRouted": 12000,
+      "originTrafficRouted": 0,
+      "totalTrafficRouted": 12000,
+      "unservedTraffic": 0,
+      "totalRoutingCost": 170912,
+      "averageRoutingCostPerReq": 14.2427,
+      "averageLatencyMs": 6.14583,
+      "executionTimeMicroseconds": 43,
+      "serverUtilPct": {"Bangalore Server": 75, "Delhi Server": 44.4444, "Mumbai Server": 58.3333, "Pune Server": 55},
+      "serverLoads": {"Bangalore Server": 3750, "Delhi Server": 2000, "Mumbai Server": 3500, "Pune Server": 2750}
+    }
+  ]
+}
+
+]

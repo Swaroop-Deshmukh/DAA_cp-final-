@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adaptive CDN Traffic Router — NOC Operations Dashboard</title>
+
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Enterprise Stylesheets -->
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body>
+  <div id="app-shell">
+
+    <!-- Persistent Sidebar Navigation -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-wrapper">
+          <div class="brand-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div>
+            <div class="brand-text">Adaptive CDN</div>
+            <div class="brand-sub">TRAFFIC ROUTER NOC</div>
+          </div>
+        </div>
+      </div>
+
+      <ul class="sidebar-menu">
+        <li class="nav-section-title">Operations Workspaces</li>
+        <li>
+          <a class="nav-item active" data-view="overview" title="What is happening in the network right now?">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Operations Overview
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" data-view="topology" title="What resources are available and what is their current condition?">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Network & Infrastructure
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" data-view="inspector" title="Why did the system make this routing decision?" style="position:relative;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+            Routing Decision Center
+            <span class="badge badge-blue" style="font-size:0.58rem; padding:1px 5px; margin-left:auto;">TRACE</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" data-view="live" title="How does the algorithm behave under different conditions?" style="position:relative;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+            Simulation & Algorithm Lab
+            <span class="badge badge-emerald" style="font-size:0.58rem; padding:1px 5px; margin-left:auto;">LIVE</span>
+          </a>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div class="engine-pill">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          C++17 Engine v1.0.0
+        </div>
+      </div>
+    </aside>
+
+    <!-- Top Navigation Bar -->
+    <header id="topbar">
+      <div class="topbar-left">
+        <div class="product-title">
+          <span>Adaptive CDN Control Console</span>
+        </div>
+        <span class="environment-tag">Simulation NOC</span>
+      </div>
+
+      <div class="topbar-right">
+        <div class="connection-status">
+          <span id="connectionStatusDot" class="status-dot"></span>
+          <span id="connectionStatusText">Connecting...</span>
+        </div>
+        <div class="last-updated">
+          Synced: <span id="lastUpdatedTime" class="mono">—</span>
+        </div>
+        <button id="btnRefreshAll" class="btn btn-secondary btn-sm" title="Refresh Live Data">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Sync
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Content -->
+    <main id="main-content">
+
+      <!-- ================= 1. OVERVIEW VIEW ================= -->
+      <section id="view-overview" class="view-container active">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Operations Overview</h1>
+            <p class="page-subtitle">Real-time status of multi-region CDN flow, edge health, and traffic metrics.</p>
+          </div>
+        </div>
+
+        <div class="overview-kpis">
+          <div class="kpi-card accent-blue">
+            <div class="kpi-header">
+              <span class="kpi-label">Ingress Traffic</span>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </div>
+            <div id="kpiTotalTraffic" class="kpi-value">10,000 req/s</div>
+            <div class="kpi-footer">
+              <span class="kpi-delta positive">&uarr; Nominal</span> Across 5 regions
+            </div>
+          </div>
+
+          <div class="kpi-card accent-emerald">
+            <div class="kpi-header">
+              <span class="kpi-label">Global Avg Latency</span>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div id="kpiAvgLatency" class="kpi-value">17.2 ms</div>
+            <div class="kpi-footer">
+              <span class="kpi-delta positive">&bull; Optimal</span> Sub-20ms SLA met
+            </div>
+          </div>
+
+          <div class="kpi-card accent-blue">
+            <div class="kpi-header">
+              <span class="kpi-label">Edge Serving Efficiency</span>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div id="kpiEdgeRatio" class="kpi-value">100%</div>
+            <div class="kpi-footer">
+              <span class="kpi-delta neutral">0 req/s to Origin</span>
+            </div>
+          </div>
+
+          <div class="kpi-card accent-amber">
+            <div class="kpi-header">
+              <span class="kpi-label">Edge POPs Online</span>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/></svg>
+            </div>
+            <div id="kpiHealthyServers" class="kpi-value">4 / 4</div>
+            <div class="kpi-footer">
+              <span class="kpi-delta positive">&bull; All POPs Healthy</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom: 24px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                Traffic Distribution by Destination
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="overviewTrafficChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Regional Latency Profile (Round-Trip)
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="overviewLatencyChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Live Network Activity & Events
+            </div>
+          </div>
+          <div id="overviewRecentLogsList">
+            <!-- Dynamic recent logs injected here -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= LIVE REAL-TIME SIMULATION VIEW ================= -->
+      <section id="view-live" class="view-container">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Continuous Real-Time Traffic Simulation & Dynamic Routing</h1>
+            <p class="page-subtitle">Genuine continuous simulation cycle streaming live traffic fluctuations and C++ adaptive routing decisions.</p>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span id="liveWsStatusBadge" class="badge badge-emerald"><span class="badge-dot"></span>WS STREAM LIVE</span>
+            <span id="liveStateBadge" class="badge badge-gray"><span class="badge-dot"></span>IDLE / STOPPED</span>
+          </div>
+        </div>
+
+        <!-- Simulation Control Bar -->
+        <div class="card" style="margin-bottom: 20px; padding: 14px 20px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <button id="btnLiveStart" class="btn btn-primary">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Start Simulation
+              </button>
+              <button id="btnLivePause" class="btn btn-secondary" style="display:none; color:var(--accent-amber); border-color:var(--accent-amber);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                Pause
+              </button>
+              <button id="btnLiveResume" class="btn btn-primary" style="display:none;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Resume
+              </button>
+              <button id="btnLiveStep" class="btn btn-outline" title="Advance simulation by exactly one tick and pause">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+                Next Tick
+              </button>
+              <button id="btnLiveReset" class="btn btn-outline">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                Reset
+              </button>
+              <button id="btnLiveInspect" class="btn btn-secondary" style="color:var(--accent-blue); border-color:var(--accent-blue);" title="Inspect current routing decision in step-by-step trace mode">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+                Inspect Decision
+              </button>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label class="form-label" style="margin-bottom:0">Mode:</label>
+                <select id="liveModeSelect" class="form-select btn-sm" style="min-width:130px;">
+                  <option value="normal" selected>Normal Mode</option>
+                  <option value="stress">Stress Mode</option>
+                </select>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label class="form-label" style="margin-bottom:0">Algorithm:</label>
+                <select id="liveStrategySelect" class="form-select btn-sm" style="min-width:180px;">
+                  <option value="Min-Cost Max-Flow" selected>Min-Cost Max-Flow</option>
+                  <option value="Round Robin">Round Robin</option>
+                  <option value="Nearest Server">Nearest Server</option>
+                  <option value="Greedy Cost">Greedy Cost</option>
+                </select>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label class="form-label" style="margin-bottom:0">Speed:</label>
+                <select id="liveSpeedSelect" class="form-select btn-sm" style="min-width:85px;">
+                  <option value="1.0" selected>1x (1s)</option>
+                  <option value="2.0">2x (0.5s)</option>
+                  <option value="5.0">5x (0.2s)</option>
+                </select>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:0.8rem; background:rgba(0,0,0,0.3); padding:4px 10px; border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
+                <span id="liveSimTimeDisplay" style="color:var(--accent-blue); font-weight:700;">00:00</span>
+                <span style="color:var(--text-muted);">&bull;</span>
+                <span id="liveStepDisplay" style="color:var(--text-secondary);">Tick #0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Intelligent Replanning Decision Banner -->
+        <div id="liveDecisionBanner" class="why-route-box" style="margin-top:0; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span id="liveDecisionBadge" class="badge badge-blue"><span class="badge-dot"></span>IDLE</span>
+            <span id="liveDecisionText" style="color:var(--text-primary); font-size:0.85rem;">Click 'Start Simulation' to initiate continuous traffic and routing decisions.</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:14px; font-size:0.78rem; font-family:var(--font-mono);">
+            <span id="liveCostDeltaText" style="color:var(--text-muted);">Cost Delta: 0 pts</span>
+            <span id="liveSolveTimeText" style="color:var(--accent-blue);">C++ Solve Time: —</span>
+          </div>
+        </div>
+
+        <!-- Live KPI Cards -->
+        <div class="overview-kpis" style="margin-bottom:20px;">
+          <div class="kpi-card accent-blue">
+            <div class="kpi-header">
+              <span class="kpi-label">Incoming Demand</span>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </div>
+            <div id="liveKpiDemand" class="kpi-value">—</div>
+            <div class="kpi-footer">Across Pune, Mumbai, Delhi, BLR, Hyd</div>
+          </div>
+
+          <div class="kpi-card accent-emerald">
+            <div class="kpi-header">
+              <span class="kpi-label">Edge-Served Traffic</span>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div id="liveKpiRouted" class="kpi-value">—</div>
+            <div class="kpi-footer">Served via Tier-1 Edge POPs</div>
+          </div>
+
+          <div class="kpi-card accent-rose">
+            <div class="kpi-header">
+              <span class="kpi-label">Origin Fallback Spill</span>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/></svg>
+            </div>
+            <div id="liveKpiOrigin" class="kpi-value">0 req/s</div>
+            <div class="kpi-footer">Spill to Central Origin DC</div>
+          </div>
+
+          <div class="kpi-card accent-blue">
+            <div class="kpi-header">
+              <span class="kpi-label">Fleet Avg Latency</span>
+              <svg class="kpi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </div>
+            <div id="liveKpiLatency" class="kpi-value">—</div>
+            <div class="kpi-footer">Real-time round trip latency</div>
+          </div>
+        </div>
+
+        <!-- Live Rolling Time-Series Charts -->
+        <div class="grid-2" style="margin-bottom: 20px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Real-Time Ingress Demand & Edge Flow (req/s)</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="liveDemandChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Server Capacity Utilization by POP (%)</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="liveServerUtilChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Allocation Breakdown Table -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Live Flow Allocations (Updated Every Cycle by C++ Engine)</div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Client Region</th>
+                  <th>Assigned Edge Server</th>
+                  <th>Allocated Throughput</th>
+                  <th>Unit Cost Points</th>
+                  <th>Total Cost Points</th>
+                </tr>
+              </thead>
+              <tbody id="liveAllocationsTableBody">
+                <tr><td colspan="5" style="text-align:center; padding:24px;">Start simulation to view continuous live flow calculations.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= ROUTING DECISION INSPECTOR VIEW ================= -->
+      <section id="view-inspector" class="view-container">
+        <div class="page-header">
+          <div>
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+              <h1 class="page-title" style="margin-bottom:0">Routing Decision Inspector</h1>
+              <span id="inspectorTickBadge" class="badge badge-blue">Tick #0</span>
+              <span id="inspectorStrategyBadge" class="badge badge-blue">Min-Cost Max-Flow</span>
+              <span id="inspectorReasonBadge" class="badge badge-emerald">NORMAL</span>
+            </div>
+            <p class="page-subtitle">Educational step-by-step trace mode: inspect frozen network snapshots and genuine C++ mathematical calculations.</p>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span id="inspectorTimeDisplay" style="font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted);">00:00 elapsed</span>
+            <button id="btnRefreshInspector" class="btn btn-outline btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              Refresh
+            </button>
+            <button id="btnCloseInspector" class="btn btn-primary btn-sm">
+              Back to Live
+            </button>
+          </div>
+        </div>
+
+        <div id="inspectorLoading" style="display:none; padding:12px; margin-bottom:16px;" class="card">
+          <div style="display:flex; align-items:center; gap:8px; color:var(--text-muted); font-size:0.85rem;">
+            <span class="spinner" style="width:16px; height:16px; border-width:2px;"></span> Loading simulation snapshot...
+          </div>
+        </div>
+
+        <!-- Inspector Control Toolbar -->
+        <div class="card" style="margin-bottom: 20px; padding: 12px 18px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;">
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label class="form-label" style="margin-bottom:0; font-size:0.8rem;">Snapshot Tick:</label>
+                <select id="inspectorTickSelect" class="form-select btn-sm" style="min-width:240px;">
+                  <option value="latest">Latest Frozen Tick</option>
+                </select>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label class="form-label" style="margin-bottom:0; font-size:0.8rem;">Algorithm Replay:</label>
+                <select id="inspectorReplayStrategy" class="form-select btn-sm" style="min-width:180px;">
+                  <option value="Min-Cost Max-Flow" selected>Min-Cost Max-Flow</option>
+                  <option value="Round Robin">Round Robin</option>
+                  <option value="Nearest Server">Nearest Server</option>
+                  <option value="Greedy Cost">Greedy Cost</option>
+                </select>
+              </div>
+
+              <button id="btnInspectorReplay" class="btn btn-secondary btn-sm" style="color:var(--accent-blue); border-color:var(--accent-blue);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                Replay & Trace
+              </button>
+            </div>
+
+            <!-- Stepper Controls -->
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button id="btnTraceStart" class="btn btn-outline btn-sm" title="Jump to First Step">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+              </button>
+              <button id="btnTracePrev" class="btn btn-secondary btn-sm" title="Previous Calculation Step (Left Arrow)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                Prev Step
+              </button>
+              <div style="padding:4px 10px; background:rgba(0,0,0,0.3); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:var(--accent-blue);">
+                <span id="traceStepCounter">Step 1 of 1</span>
+              </div>
+              <button id="btnTraceNext" class="btn btn-primary btn-sm" title="Next Calculation Step (Right Arrow)">
+                Next Step
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+              <button id="btnTraceEnd" class="btn btn-outline btn-sm" title="Jump to Final Decision">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+              </button>
+              <button id="btnTracePlay" class="btn btn-outline btn-sm" title="Auto-advance steps">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Play
+              </button>
+            </div>
+          </div>
+          <!-- Step Progress bar -->
+          <div class="progress-bar" style="margin-top:10px; height:3px;">
+            <div id="traceStepProgressFill" class="progress-fill" style="width: 0%; background:var(--accent-blue);"></div>
+          </div>
+        </div>
+
+        <div class="inspector-layout">
+          <!-- Left Column: Steps Timeline & Network Snapshot -->
+          <div class="inspector-sidebar">
+            <div class="card">
+              <div class="card-header" style="padding-bottom:10px;">
+                <div class="card-title" style="font-size:0.85rem;">Algorithm Decision Trace</div>
+                <span style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);">Click step to jump</span>
+              </div>
+              <div id="inspectorStepsList" class="inspector-step-timeline">
+                <!-- Step items injected dynamically -->
+              </div>
+            </div>
+
+            <!-- Frozen Ingress Demands -->
+            <div class="card">
+              <div class="card-header" style="padding-bottom:10px;">
+                <div class="card-title" style="font-size:0.85rem;">Ingress Demand Snapshot</div>
+                <span id="inspectorTotalDemand" style="font-size:0.75rem; font-family:var(--font-mono); color:var(--accent-blue); font-weight:700;">—</span>
+              </div>
+              <div id="inspectorDemandsList" style="padding:4px 0;">
+                <!-- Demand bars injected dynamically -->
+              </div>
+            </div>
+
+            <!-- Frozen Edge Server Health & Capacities -->
+            <div class="card">
+              <div class="card-header" style="padding-bottom:10px;">
+                <div class="card-title" style="font-size:0.85rem;">Edge Server Health & Limits</div>
+              </div>
+              <div id="inspectorServersList" style="padding:4px 0;">
+                <!-- Server health bars injected dynamically -->
+              </div>
+              <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border-subtle); font-size:0.75rem;">
+                <div style="color:var(--text-muted); margin-bottom:4px;">Link Propagation / Congestion:</div>
+                <div id="inspectorCongestionStatus">Nominal</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Active Step Details & Final Decision -->
+          <div class="inspector-main-panel">
+            <!-- Region Candidate Server Investigator -->
+            <div class="card" id="cardRegionCandidateInvestigator">
+              <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-bottom:1px solid var(--border-subtle); padding-bottom:12px;">
+                <div>
+                  <div class="card-title" style="margin-bottom:2px; font-size:1.0rem;">Region Candidate Server Investigator</div>
+                  <div style="font-size:0.78rem; color:var(--text-secondary);">
+                    Select an ingress region to inspect all candidate edge routes, constraint feasibility, multi-factor cost calculations, and final flow distribution.
+                  </div>
+                </div>
+                <!-- Region Selector Pills -->
+                <div id="inspectorRegionPills" class="region-pill-group" style="display:flex; gap:6px; flex-wrap:wrap;">
+                  <button class="btn btn-sm btn-outline region-pill active" data-region="Pune">Pune</button>
+                  <button class="btn btn-sm btn-outline region-pill" data-region="Mumbai">Mumbai</button>
+                  <button class="btn btn-sm btn-outline region-pill" data-region="Delhi">Delhi</button>
+                  <button class="btn btn-sm btn-outline region-pill" data-region="Bangalore">Bangalore</button>
+                  <button class="btn btn-sm btn-outline region-pill" data-region="Hyderabad">Hyderabad</button>
+                </div>
+              </div>
+
+              <div style="padding: 16px 20px;">
+                <!-- Selected Region Ingress Summary Banner -->
+                <div id="inspectorRegionBanner" class="region-ingress-banner" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                  <!-- Injected dynamically -->
+                </div>
+
+                <!-- Prominent Routing Decision Callout Box: Shows Selected Node & Direct Comparison -->
+                <div id="inspectorDecisionCallout" style="margin-bottom:16px;">
+                  <!-- Injected dynamically by Inspector.renderDecisionCallout -->
+                </div>
+
+                <!-- Candidate Server Comparison Matrix Table -->
+                <div class="table-responsive">
+                  <table class="data-table" id="inspectorCandidateTable">
+                    <thead>
+                      <tr>
+                        <th style="min-width:180px;">Candidate Server & Route Status</th>
+                        <th style="min-width:105px;">Latency (SLA)</th>
+                        <th style="min-width:170px;">Transit Link (Flow / Capacity)</th>
+                        <th style="min-width:130px;">Fleet Load & Cap</th>
+                        <th style="min-width:70px;">Cache Hit</th>
+                        <th style="min-width:135px;">Unit Cost ($/req)</th>
+                        <th style="min-width:210px;">Algorithm Decision & Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody id="inspectorCandidateTableBody">
+                      <!-- Injected dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Deep-Dive Decision Synthesis: Mathematical Proof & Real System Flow -->
+                <div id="inspectorDecisionSynthesis" class="decision-synthesis-container">
+                  <!-- Injected dynamically by Inspector.renderDecisionSynthesis -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Interactive Graph Execution Visualizer -->
+            <div class="card graph-visualizer-card">
+              <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-bottom:1px solid var(--border-subtle); padding-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <div class="card-title" style="margin-bottom:0; font-size:0.95rem;">Interactive Graph Execution Visualizer</div>
+                  <span class="badge badge-blue" id="graphAlgorithmBadge">MCMF Residual Graph</span>
+                </div>
+                <div class="graph-toolbar-controls" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <button id="btnGraphZoomIn" class="btn btn-outline btn-sm" title="Zoom In">+</button>
+                  <button id="btnGraphZoomOut" class="btn btn-outline btn-sm" title="Zoom Out">−</button>
+                  <button id="btnGraphFit" class="btn btn-outline btn-sm" title="Fit to Screen">Fit</button>
+                  <button id="btnGraphReset" class="btn btn-outline btn-sm" title="Reset View">Reset</button>
+                  <div style="height:18px; width:1px; background:var(--border-subtle); margin:0 4px;"></div>
+                  <label class="toggle-control" title="Toggle Edge Flow & Capacity Labels">
+                    <input type="checkbox" id="chkShowEdgeLabels" checked>
+                    <span style="font-size:0.75rem; color:var(--text-secondary);">Labels</span>
+                  </label>
+                  <label class="toggle-control" title="Toggle Backward Residual Edges">
+                    <input type="checkbox" id="chkShowResidualEdges">
+                    <span style="font-size:0.75rem; color:var(--text-secondary);">Residual Edges</span>
+                  </label>
+                  <label class="toggle-control" title="Toggle Candidate Paths Highlighting">
+                    <input type="checkbox" id="chkShowCandidates" checked>
+                    <span style="font-size:0.75rem; color:var(--text-secondary);">Candidates</span>
+                  </label>
+                  <button id="btnGraphFullscreen" class="btn btn-outline btn-sm" title="Toggle Fullscreen">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Graph Canvas Container -->
+              <div id="graphVisualizerContainer" class="graph-visualizer-container" style="position:relative; width:100%; height:460px; overflow:hidden;">
+                <svg id="graphVisualizerSvg" width="100%" height="100%" style="display:block; cursor:grab;"></svg>
+                <!-- Node / Edge Detail Flyout -->
+                <div id="graphElementDetails" class="graph-inspector-flyout" style="display:none;"></div>
+                <!-- Augmenting Path / Shortest Path HUD -->
+                <div id="graphDijkstraHud" class="graph-dijkstra-hud" style="display:none;"></div>
+              </div>
+
+              <!-- Interactive Legend -->
+              <div class="graph-legend-bar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:8px 14px; background:rgba(0,0,0,0.3); border-top:1px solid var(--border-subtle); font-size:0.72rem; color:var(--text-secondary);">
+                <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+                  <span style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#3b82f6;"></span> Source (S)</span>
+                  <span style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#6366f1;"></span> Region Ingress</span>
+                  <span style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#10b981;"></span> Edge Server</span>
+                  <span style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:#ef4444;"></span> Origin Fallback</span>
+                  <span style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#059669;"></span> Sink (T)</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+                  <span style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:14px; height:2px; background:#3b82f6;"></span> Active Flow</span>
+                  <span style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:14px; height:3px; background:#10b981;"></span> Augmenting Path</span>
+                  <span style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:14px; height:2px; border-top:2px dashed #a855f7;"></span> Residual Edge</span>
+                  <span style="display:flex; align-items:center; gap:5px;"><span style="display:inline-block; width:14px; height:2px; border-top:2px dashed #f59e0b;"></span> Candidate</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Active Step Inspection Card -->
+            <div class="card" style="border-left: 3px solid var(--accent-blue);">
+              <div class="card-header" style="border-bottom:1px solid var(--border-subtle);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span id="stepPhaseBadge" class="badge badge-emerald">STEP PHASE</span>
+                  <div id="stepActionTitle" style="font-size:1.05rem; font-weight:700; color:var(--text-primary);">
+                    Execution Step
+                  </div>
+                </div>
+              </div>
+              <div style="padding:18px 20px;">
+                <div style="font-size:0.88rem; color:var(--text-secondary); line-height:1.55; margin-bottom:12px;" id="stepDescriptionText">
+                  Step details and calculations will appear here.
+                </div>
+                <div id="stepDetailsGrid" class="inspector-detail-grid">
+                  <!-- Variable key-value cards injected dynamically -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Final Traffic Allocation Decision -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">Final Traffic Allocation Decision for Frozen Snapshot</div>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>User Region</th>
+                      <th>Assigned Edge POP</th>
+                      <th>Throughput Allocated</th>
+                      <th>Unit Cost ($/req)</th>
+                      <th>Total Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody id="inspectAllocationsTableBody">
+                    <tr><td colspan="5" style="text-align:center; padding:16px;">Loading allocations...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Snapshot Outcome KPIs -->
+            <div class="overview-kpis" style="margin-bottom:0;">
+              <div class="kpi-card accent-blue">
+                <div class="kpi-label">Total Traffic Routed</div>
+                <div id="inspectKpiTotalRouted" class="kpi-value">—</div>
+              </div>
+              <div class="kpi-card accent-emerald">
+                <div class="kpi-label">Edge Serving</div>
+                <div id="inspectKpiEdgeTraffic" class="kpi-value">—</div>
+              </div>
+              <div class="kpi-card accent-rose">
+                <div class="kpi-label">Origin Fallback</div>
+                <div id="inspectKpiOriginTraffic" class="kpi-value">0 req/s</div>
+              </div>
+              <div class="kpi-card accent-blue">
+                <div class="kpi-label">Total Cost Points</div>
+                <div id="inspectKpiRoutingCost" class="kpi-value">—</div>
+              </div>
+              <div class="kpi-card accent-amber">
+                <div class="kpi-label">Average Latency</div>
+                <div id="inspectKpiAvgLatency" class="kpi-value">—</div>
+              </div>
+            </div>
+
+            <!-- Algorithmic Explanation Narrative -->
+            <div class="why-route-box">
+              <h4>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                Decision Rationale & Economic Proof
+              </h4>
+              <p id="inspectExplanationText">Explanation of why traffic was allocated to each destination.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 2. NETWORK TOPOLOGY VIEW ================= -->
+      <section id="view-topology" class="view-container">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Network Topology & Live Flow</h1>
+            <p class="page-subtitle">Interactive visual representation of Source Ingress &rarr; 5 Regions &rarr; 4 Edge POPs &rarr; Origin Central DC.</p>
+          </div>
+        </div>
+
+        <div class="topology-workspace">
+          <div class="topology-legend">
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-blue)"></div> Active Edge Flow</div>
+            <div class="legend-item"><div class="legend-color" style="background:#f59e0b"></div> Congested Link</div>
+            <div class="legend-item"><div class="legend-color" style="background:#ef4444"></div> Origin Fallback / Outage</div>
+            <div class="legend-item"><div class="legend-color" style="background:#3b82f6"></div> User Region</div>
+          </div>
+          <svg id="topology-svg" viewBox="0 0 960 480"></svg>
+        </div>
+      </section>
+
+      <!-- ================= 3. TRAFFIC ROUTING VIEW ================= -->
+      <section id="view-routing" class="view-container">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Traffic Routing Studio</h1>
+            <p class="page-subtitle">Execute Min-Cost Max-Flow Dijkstra with Johnson Potentials or compare with baseline strategies.</p>
+          </div>
+        </div>
+
+        <div class="routing-header-bar">
+          <div class="form-group" style="margin-bottom:0; min-width: 180px;">
+            <label class="form-label">Algorithm Strategy</label>
+            <select id="routingStrategySelect" class="form-select">
+              <option value="mcmf" selected>Min-Cost Max-Flow (MCMF)</option>
+              <option value="round_robin">Round Robin (Equal Share)</option>
+              <option value="nearest">Nearest Server (Min Latency)</option>
+              <option value="greedy">Greedy Cost-Based</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom:0; min-width: 180px;">
+            <label class="form-label">Traffic Scenario</label>
+            <select id="routingScenarioSelect" class="form-select">
+              <option value="normal" selected>Normal Traffic (12,000 req/s)</option>
+              <option value="mumbai_spike">Mumbai Surge (7,000 req/s)</option>
+              <option value="over_capacity">Overcapacity Spike (24,000 req/s)</option>
+              <option value="cache_improvement">High Cache Hit (0.98/0.99)</option>
+            </select>
+          </div>
+
+          <button id="btnRunRouting" class="btn btn-primary" style="height: 38px;">
+            Run Traffic Router
+          </button>
+        </div>
+
+        <div class="overview-kpis" style="margin-bottom: 20px;">
+          <div class="kpi-card accent-blue">
+            <div class="kpi-label">Traffic Routed</div>
+            <div id="routingTotalRouted" class="kpi-value">—</div>
+          </div>
+          <div class="kpi-card accent-emerald">
+            <div class="kpi-label">Total Routing Cost</div>
+            <div id="routingTotalCost" class="kpi-value">—</div>
+          </div>
+          <div class="kpi-card accent-rose">
+            <div class="kpi-label">Origin Fallback Traffic</div>
+            <div id="routingOriginTraffic" class="kpi-value">—</div>
+          </div>
+          <div class="kpi-card accent-blue">
+            <div class="kpi-label">C++ Engine Solve Time</div>
+            <div id="routingExecTime" class="kpi-value">—</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 20px;">
+          <div class="card-header">
+            <div class="card-title">Computed Ingress &rarr; POP Allocation Breakdown</div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>User Region</th>
+                  <th>Destination Server</th>
+                  <th>Bandwidth Allocated</th>
+                  <th>Round-Trip Latency</th>
+                  <th>Unit Cost</th>
+                  <th>Total Cost Points</th>
+                </tr>
+              </thead>
+              <tbody id="routingAllocationsTableBody">
+                <tr><td colspan="6" style="text-align:center; padding: 24px;">Click "Run Traffic Router" to calculate optimal allocations.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="whyRouteExplanation" class="why-route-box">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            Algorithmic Route Explanation
+          </h4>
+          <p>Execute routing above to view how Johnson Potentials and convex load band pricing determined flow paths.</p>
+        </div>
+      </section>
+
+      <!-- ================= 4. SERVER MONITORING VIEW ================= -->
+      <section id="view-monitoring" class="view-container">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Edge POP & Server Telemetry</h1>
+            <p class="page-subtitle">Health states, current active throughput, and 4-tier load band saturation.</p>
+          </div>
+        </div>
+
+        <div id="serversGridContainer" class="server-grid">
+          <!-- Dynamic Server Cards injected here -->
+        </div>
+      </section>
+
+      <!-- ================= 5. ALGORITHM COMPARISON VIEW ================= -->
+      <section id="view-comparison" class="view-container">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Algorithm Benchmark Comparison</h1>
+            <p class="page-subtitle">Rigorous side-by-side evaluation of MCMF vs Round Robin, Nearest Server, and Greedy Cost.</p>
+          </div>
+          <div>
+            <select id="comparisonScenarioSelect" class="form-select" style="min-width: 260px;">
+              <option value="normal" selected>Scenario 1: Normal Traffic Baseline</option>
+              <option value="mumbai_spike">Scenario 2: Mumbai Demand Surge</option>
+              <option value="delhi_failure">Scenario 3: Delhi POP Outage</option>
+              <option value="delhi_recovery">Scenario 4: Delhi POP Recovery</option>
+              <option value="pune_congestion">Scenario 5: Transit Link Congestion</option>
+              <option value="over_capacity">Scenario 6: 24k Overcapacity Spike</option>
+              <option value="all_servers_failed">Scenario 7: Catastrophic All POPs Offline</option>
+              <option value="cache_improvement">Scenario 8: Cache Hit Ratio Improvement</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 24px;">
+          <div class="card-header">
+            <div class="card-title">Comparative Metrics Matrix</div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Algorithm Strategy</th>
+                  <th>Traffic Routed</th>
+                  <th>Origin Spill</th>
+                  <th>Avg Latency</th>
+                  <th>Avg Cost / Req</th>
+                  <th>Solve Duration</th>
+                </tr>
+              </thead>
+              <tbody id="comparisonTableBody">
+                <!-- Comparative benchmarks injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Average Routing Cost per Request (Lower is Better)</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="comparisonCostChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Average Latency Profile (ms)</div>
+            </div>
+            <div class="chart-container">
+              <canvas id="comparisonLatencyChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 6. SIMULATION LAB VIEW ================= -->
+      <section id="view-simulation" class="view-container">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Simulation & Stress Lab</h1>
+            <p class="page-subtitle">Inject live network anomalies, server hardware outages, and traffic spikes with 1 click.</p>
+          </div>
+          <button id="btnResetSimulation" class="btn btn-secondary">
+            Reset to Normal
+          </button>
+        </div>
+
+        <div id="scenarioCardsGrid" class="scenario-grid">
+          <!-- 8 Scenario cards dynamically injected here -->
+        </div>
+      </section>
+
+      <!-- ================= 7. FORECASTING & CACHE VIEW ================= -->
+      <section id="view-forecast" class="view-container">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Demand Forecasting & Cache Knapsack</h1>
+            <p class="page-subtitle">Holt Linear Trend Smoothing and 0/1 Knapsack Dynamic Programming for Edge POP Storage.</p>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom: 24px;">
+          <!-- Holt Linear Smoothing Section -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Holt Linear Demand Forecast (req/s)
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div id="forecastTrendIndicator"></div>
+                <select id="forecastRegionSelect" class="form-select btn-sm">
+                  <option value="Pune">Pune</option>
+                  <option value="Mumbai" selected>Mumbai</option>
+                  <option value="Delhi">Delhi</option>
+                  <option value="Bangalore">Bangalore</option>
+                  <option value="Hyderabad">Hyderabad</option>
+                </select>
+              </div>
+            </div>
+            <div class="chart-container">
+              <canvas id="forecastChart"></canvas>
+            </div>
+          </div>
+
+          <!-- 0/1 Knapsack DP Cache Section -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                0/1 Knapsack Cache Optimizer
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label class="form-label" style="margin-bottom:0">Storage Budget:</label>
+                <select id="cacheBudgetInput" class="form-select btn-sm">
+                  <option value="150">150 MB</option>
+                  <option value="350" selected>350 MB</option>
+                  <option value="500">500 MB</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid-3" style="margin-bottom: 12px;">
+              <div class="kpi-card accent-blue" style="padding: 10px 14px;">
+                <div class="kpi-label">Storage Used</div>
+                <div id="cacheUsedCapacity" class="kpi-value" style="font-size:1.2rem">—</div>
+              </div>
+              <div class="kpi-card accent-emerald" style="padding: 10px 14px;">
+                <div class="kpi-label">Total Value Placed</div>
+                <div id="cacheTotalValue" class="kpi-value" style="font-size:1.2rem">—</div>
+              </div>
+              <div class="kpi-card accent-blue" style="padding: 10px 14px;">
+                <div class="kpi-label">Estimated Hit Rate</div>
+                <div id="cacheEstimatedHitRate" class="kpi-value" style="font-size:1.2rem">—</div>
+              </div>
+            </div>
+
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">Storage Allocation Distribution</div>
+            <div id="cacheKnapsackBar" class="cache-knapsack-bar"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Candidate Content Assets & Dynamic Programming Placement</div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Asset Name / URI</th>
+                  <th>File Size (GB)</th>
+                  <th>Popularity Value</th>
+                  <th>Value / Weight</th>
+                  <th>DP Knapsack Decision</th>
+                </tr>
+              </thead>
+              <tbody id="cacheItemsTableBody">
+                <!-- Knapsack items injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 8. AUDIT EVENT LOGS VIEW ================= -->
+      <section id="view-logs" class="view-container">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">System Audit & Event Logs</h1>
+            <p class="page-subtitle">Real-time audit log of routing computations, topology updates, and failover triggers.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="log-filters">
+            <input type="text" id="logSearchInput" class="search-input" placeholder="Search event logs (keyword, category, message)...">
+            <select id="logLevelFilter" class="form-select" style="min-width: 140px;">
+              <option value="ALL">All Levels</option>
+              <option value="INFO">INFO Only</option>
+              <option value="WARN">WARN Only</option>
+              <option value="ERROR">ERROR Only</option>
+              <option value="REROUTE">REROUTE Only</option>
+            </select>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 110px;">Timestamp</th>
+                  <th style="width: 90px;">Severity</th>
+                  <th style="width: 140px;">Category</th>
+                  <th>Event Message & Details</th>
+                </tr>
+              </thead>
+              <tbody id="eventLogsTableBody">
+                <!-- Log rows injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Inspection Slide-Out Drawer -->
+    <div id="inspectDrawer" class="drawer">
+      <div class="drawer-header">
+        <div id="drawerTitle" class="drawer-title">Node Telemetry</div>
+        <button id="drawerCloseBtn" class="drawer-close">&times;</button>
+      </div>
+      <div id="drawerBody">
+        <!-- Live entity details injected here -->
+      </div>
+    </div>
+
+    <!-- Notification Toasts -->
+    <div id="toast-container"></div>
+
+  </div>
+
+  <!-- Main JavaScript App Entrypoint -->
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
