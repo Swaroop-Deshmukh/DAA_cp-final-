@@ -42,16 +42,19 @@ struct GraphEdgeDto {
  * @brief Records discrete changes to edge flow and residual capacity during an augmentation.
  */
 struct EdgeUpdateDto {
+    int edgeId = 0;
     int fromId = 0;
     int toId = 0;
     std::string fromName;
     std::string toName;
+    double initialCapacity = 0.0;
     double prevFlow = 0.0;
     double newFlow = 0.0;
     double prevResidual = 0.0;
     double newResidual = 0.0;
     bool isReverse = false;
     long long reducedCost = 0;
+    std::string bandIdentity;
     std::string label;
 };
 
@@ -65,6 +68,42 @@ struct CandidatePathDto {
     double bottleneck = 0.0;
     std::string status; // "SELECTED", "EVALUATED", "EXCLUDED_OUTAGE", "EXCLUDED_CAPACITY"
     std::string reason;
+};
+
+/**
+ * @brief Records an individual Dijkstra edge relaxation evaluation event.
+ */
+struct DijkstraRelaxationDto {
+    int iteration = 0;
+    int uNodeId = 0;
+    std::string uNodeName;
+    long long distU = 0;
+    int edgeId = 0;
+    int vNodeId = 0;
+    std::string vNodeName;
+    long long originalEdgeCost = 0;
+    long long piU = 0;
+    long long piV = 0;
+    long long reducedCost = 0;
+    long long prevDistV = 0;
+    long long newDistV = 0;
+    bool isReverse = false;
+    double residualCapacity = 0.0;
+    int predecessorEdge = -1;
+    bool relaxationSucceeded = false;
+    std::string edgeLabel;
+};
+
+/**
+ * @brief Records a vertex dual potential shift during potential update.
+ */
+struct PotentialShiftDto {
+    int nodeId = 0;
+    std::string nodeName;
+    long long prevPotential = 0;
+    long long dijkstraDistance = 0;
+    long long updatedPotential = 0;
+    bool changed = false;
 };
 
 /**
@@ -83,6 +122,14 @@ struct TraceStep {
     double bottleneckFlow = 0.0;
     std::vector<EdgeUpdateDto> edgeUpdates;
     std::vector<CandidatePathDto> candidatePaths;
+
+    // Detailed Mathematical MCMF Trace Logging
+    std::vector<DijkstraRelaxationDto> relaxations;
+    std::vector<PotentialShiftDto> potentialShifts;
+    double pathCost = 0.0;
+    double incrementalPathCost = 0.0;
+    double cumulativeFlow = 0.0;
+    double cumulativeObjectiveCost = 0.0;
 };
 
 /**
@@ -194,9 +241,12 @@ struct DecisionTrace {
             ss << "      \"edgeUpdates\": [";
             for (size_t j = 0; j < s.edgeUpdates.size(); ++j) {
                 const auto& u = s.edgeUpdates[j];
-                ss << "{\"fromId\": " << u.fromId << ", \"toId\": " << u.toId
+                ss << "{\"edgeId\": " << u.edgeId
+                   << ", \"fromId\": " << u.fromId << ", \"toId\": " << u.toId
                    << ", \"fromName\": \"" << escapeJson(u.fromName) << "\", \"toName\": \"" << escapeJson(u.toName)
-                   << "\", \"prevFlow\": " << u.prevFlow << ", \"newFlow\": " << u.newFlow
+                   << "\", \"initialCapacity\": " << u.initialCapacity
+                   << ", \"bandIdentity\": \"" << escapeJson(u.bandIdentity) << "\""
+                   << ", \"prevFlow\": " << u.prevFlow << ", \"newFlow\": " << u.newFlow
                    << ", \"prevResidual\": " << u.prevResidual << ", \"newResidual\": " << u.newResidual
                    << ", \"isReverse\": " << (u.isReverse ? "true" : "false")
                    << ", \"reducedCost\": " << u.reducedCost
@@ -216,6 +266,42 @@ struct DecisionTrace {
                     ss << "\"" << escapeJson(cp.nodeNames[k]) << "\"" << (k + 1 < cp.nodeNames.size() ? ", " : "");
                 }
                 ss << "]}" << (j + 1 < s.candidatePaths.size() ? ", " : "");
+            }
+            ss << "],\n";
+
+            // Mathematical MCMF Metrics & Relaxations
+            ss << "      \"pathCost\": " << s.pathCost << ",\n";
+            ss << "      \"incrementalPathCost\": " << s.incrementalPathCost << ",\n";
+            ss << "      \"cumulativeFlow\": " << s.cumulativeFlow << ",\n";
+            ss << "      \"cumulativeObjectiveCost\": " << s.cumulativeObjectiveCost << ",\n";
+
+            ss << "      \"relaxations\": [";
+            for (size_t j = 0; j < s.relaxations.size(); ++j) {
+                const auto& r = s.relaxations[j];
+                ss << "{\"uId\": " << r.uNodeId << ", \"uName\": \"" << escapeJson(r.uNodeName) << "\""
+                   << ", \"distU\": " << r.distU << ", \"edgeId\": " << r.edgeId
+                   << ", \"vId\": " << r.vNodeId << ", \"vName\": \"" << escapeJson(r.vNodeName) << "\""
+                   << ", \"origCost\": " << r.originalEdgeCost << ", \"baseCost\": " << r.originalEdgeCost
+                   << ", \"piU\": " << r.piU << ", \"piV\": " << r.piV
+                   << ", \"redCost\": " << r.reducedCost << ", \"reducedCost\": " << r.reducedCost
+                   << ", \"prevDist\": " << r.prevDistV << ", \"prevDistV\": " << r.prevDistV
+                   << ", \"newDist\": " << r.newDistV << ", \"newDistV\": " << r.newDistV
+                   << ", \"relaxed\": " << (r.relaxationSucceeded ? "true" : "false")
+                   << ", \"label\": \"" << escapeJson(r.edgeLabel) << "\"}"
+                   << (j + 1 < s.relaxations.size() ? ", " : "");
+            }
+            ss << "],\n";
+
+            ss << "      \"potentialShifts\": [";
+            for (size_t j = 0; j < s.potentialShifts.size(); ++j) {
+                const auto& ps = s.potentialShifts[j];
+                ss << "{\"nodeId\": " << ps.nodeId << ", \"nodeName\": \"" << escapeJson(ps.nodeName) << "\""
+                   << ", \"prevPi\": " << ps.prevPotential << ", \"prevPotential\": " << ps.prevPotential
+                   << ", \"dist\": " << ps.dijkstraDistance << ", \"shortestDist\": " << ps.dijkstraDistance
+                   << ", \"updatedPi\": " << ps.updatedPotential << ", \"newPotential\": " << ps.updatedPotential
+                   << ", \"potentialShift\": " << (ps.updatedPotential - ps.prevPotential)
+                   << ", \"changed\": " << (ps.changed ? "true" : "false") << "}"
+                   << (j + 1 < s.potentialShifts.size() ? ", " : "");
             }
             ss << "],\n";
 

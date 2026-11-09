@@ -40,7 +40,14 @@
       <ul class="sidebar-menu">
         <li class="nav-section-title">Operations Workspaces</li>
         <li>
-          <a class="nav-item active" data-view="overview" title="What is happening in the network right now?">
+          <a class="nav-item active" data-view="live" title="Continuous live simulation and adaptive routing." style="position:relative;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+            Simulation & Algorithm Lab
+            <span class="badge badge-emerald" style="font-size:0.58rem; padding:1px 5px; margin-left:auto;">LIVE</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-item" data-view="overview" title="What is happening in the network right now?">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             Operations Overview
           </a>
@@ -56,13 +63,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
             Routing Decision Center
             <span class="badge badge-blue" style="font-size:0.58rem; padding:1px 5px; margin-left:auto;">TRACE</span>
-          </a>
-        </li>
-        <li>
-          <a class="nav-item" data-view="live" title="How does the algorithm behave under different conditions?" style="position:relative;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
-            Simulation & Algorithm Lab
-            <span class="badge badge-emerald" style="font-size:0.58rem; padding:1px 5px; margin-left:auto;">LIVE</span>
           </a>
         </li>
       </ul>
@@ -103,7 +103,7 @@
     <main id="main-content">
 
       <!-- ================= 1. OVERVIEW VIEW ================= -->
-      <section id="view-overview" class="view-container active">
+      <section id="view-overview" class="view-container">
         <div class="page-header">
           <div>
             <h1 class="page-title">Operations Overview</h1>
@@ -197,7 +197,7 @@
       </section>
 
       <!-- ================= LIVE REAL-TIME SIMULATION VIEW ================= -->
-      <section id="view-live" class="view-container">
+      <section id="view-live" class="view-container active">
         <div class="page-header">
           <div>
             <h1 class="page-title">Continuous Real-Time Traffic Simulation & Dynamic Routing</h1>
@@ -250,12 +250,11 @@
 
               <div style="display:flex; align-items:center; gap:6px;">
                 <label class="form-label" style="margin-bottom:0">Algorithm:</label>
-                <select id="liveStrategySelect" class="form-select btn-sm" style="min-width:190px;">
+                <select id="liveStrategySelect" class="form-select btn-sm" style="min-width:180px;">
                   <option value="Min-Cost Max-Flow" selected>Min-Cost Max-Flow</option>
                   <option value="Round Robin">Round Robin</option>
                   <option value="Nearest Server">Nearest Server</option>
                   <option value="Greedy Cost">Greedy Cost</option>
-                  <option value="Edmonds-Karp">Edmonds-Karp</option>
                 </select>
               </div>
 
@@ -415,13 +414,12 @@
               </div>
 
               <div style="display:flex; align-items:center; gap:6px;">
-                <label class="form-label" style="margin-bottom:0; font-size:0.8rem;">Algorithm Strategy:</label>
-                <select id="inspectorReplayStrategy" class="form-select btn-sm" style="min-width:210px;">
-                  <option value="Min-Cost Max-Flow" selected>Min-Cost Max-Flow (Optimal)</option>
-                  <option value="Round Robin">Round Robin (Cyclic)</option>
-                  <option value="Nearest Server">Nearest Server (Lowest Latency)</option>
-                  <option value="Greedy Cost">Greedy Cost (Cheapest Link)</option>
-                  <option value="Edmonds-Karp">Edmonds-Karp (Max-Flow Cut)</option>
+                <label class="form-label" style="margin-bottom:0; font-size:0.8rem;">Algorithm Replay:</label>
+                <select id="inspectorReplayStrategy" class="form-select btn-sm" style="min-width:180px;">
+                  <option value="Min-Cost Max-Flow" selected>Min-Cost Max-Flow</option>
+                  <option value="Round Robin">Round Robin</option>
+                  <option value="Nearest Server">Nearest Server</option>
+                  <option value="Greedy Cost">Greedy Cost</option>
                 </select>
               </div>
 
@@ -538,13 +536,13 @@
                   <table class="data-table" id="inspectorCandidateTable">
                     <thead>
                       <tr>
-                        <th style="min-width:180px;">Candidate Server & Status</th>
-                        <th style="min-width:130px;">Physical Latency & Congestion</th>
-                        <th style="min-width:190px;">Link Bandwidth (Pre &rarr; Projected)</th>
-                        <th style="min-width:190px;">Server Capacity (Pre &rarr; Projected)</th>
+                        <th style="min-width:180px;">Candidate Server & Route Status</th>
+                        <th style="min-width:105px;">Latency (SLA)</th>
+                        <th style="min-width:170px;">Transit Link (Flow / Capacity)</th>
+                        <th style="min-width:130px;">Fleet Load & Cap</th>
                         <th style="min-width:70px;">Cache Hit</th>
                         <th style="min-width:135px;">Unit Cost ($/req)</th>
-                        <th style="min-width:220px;">Eligibility & Decision Reason</th>
+                        <th style="min-width:210px;">Algorithm Decision & Reason</th>
                       </tr>
                     </thead>
                     <tbody id="inspectorCandidateTableBody">
@@ -556,11 +554,6 @@
                 <!-- Deep-Dive Decision Synthesis: Mathematical Proof & Real System Flow -->
                 <div id="inspectorDecisionSynthesis" class="decision-synthesis-container">
                   <!-- Injected dynamically by Inspector.renderDecisionSynthesis -->
-                </div>
-
-                <!-- Destination Server Allocation Provenance & Augmenting Path Breakdown -->
-                <div id="inspectorAllocationProvenance" style="margin-top:16px;">
-                  <!-- Injected dynamically when a server is selected -->
                 </div>
               </div>
             </div>

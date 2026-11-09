@@ -16,7 +16,6 @@ export const Inspector = {
   isPlaying: false,
 
   init() {
-    window.Inspector = this;
     this.bindEvents();
     GraphVisualizer.init();
   },
@@ -49,11 +48,6 @@ export const Inspector = {
     }
 
     // 2. Replay Strategy Selector & Button
-    const stratSelect = document.getElementById('inspectorReplayStrategy');
-    if (stratSelect) {
-      stratSelect.addEventListener('change', () => this.handleReplay());
-    }
-
     const btnReplay = document.getElementById('btnInspectorReplay');
     if (btnReplay) {
       btnReplay.addEventListener('click', () => this.handleReplay());
@@ -226,9 +220,6 @@ export const Inspector = {
       this.currentStepIndex = 0;
       this.currentSnapshot.strategy = strategy;
       this.currentSnapshot.routing = data.routing;
-      if (data.candidates_by_region) {
-        this.currentSnapshot.candidates_by_region = data.candidates_by_region;
-      }
 
       // Load into Interactive Graph Execution Visualizer
       GraphVisualizer.loadTrace(this.currentTrace);
@@ -316,7 +307,6 @@ export const Inspector = {
       const failed = new Set(this.currentSnapshot.failed_servers || []);
       const serverLoads = (this.currentSnapshot.routing && this.currentSnapshot.routing.serverLoads) || {};
       const serverUtils = (this.currentSnapshot.routing && this.currentSnapshot.routing.serverUtilPct) || {};
-      const allocations = (this.currentSnapshot.routing && this.currentSnapshot.routing.allocations) || [];
 
       // Derive servers dynamically from snapshot topology
       let serversConfig = [];
@@ -324,55 +314,38 @@ export const Inspector = {
       const firstReg = Object.keys(candsMap)[0];
       if (firstReg && candsMap[firstReg]) {
         serversConfig = candsMap[firstReg]
-          .map(c => ({ name: c.server, cap: c.server_total_capacity, isOrigin: !!c.is_origin }));
+          .filter(c => !c.is_origin)
+          .map(c => ({ name: c.server, cap: c.server_total_capacity }));
       }
       if (serversConfig.length === 0) {
-        serversConfig = Object.keys(serverLoads).map(k => ({
+        serversConfig = Object.keys(serverLoads).filter(k => k !== 'Origin Server').map(k => ({
           name: k,
-          cap: k.includes('Mumbai') ? 6000 : (k.includes('Delhi') ? 4500 : (k.includes('Origin') ? 999999 : 5000)),
-          isOrigin: k.includes('Origin')
+          cap: k.includes('Mumbai') ? 6000 : (k.includes('Delhi') ? 4500 : 5000)
         }));
       }
 
       for (const s of serversConfig) {
         const isOffline = failed.has(s.name);
-        const projLoad = serverLoads[s.name] || 0;
-        const isOrigin = s.isOrigin;
-        const newAlloc = allocations.filter(a => a.server === s.name).reduce((sum, a) => sum + (a.flow || 0), 0);
-        const preLoad = Math.max(0, projLoad - newAlloc);
-        const remCap = isOrigin ? '∞' : Math.max(0, s.cap - projLoad);
-        const util = isOrigin ? (projLoad > 0 ? 100 : 0) : (serverUtils[s.name] || (isOffline ? 0 : (projLoad / s.cap * 100)));
+        const load = serverLoads[s.name] || 0;
+        const util = serverUtils[s.name] || (isOffline ? 0 : (load / s.cap * 100));
 
         const item = document.createElement('div');
-        item.className = 'server-inventory-card';
         item.style.marginBottom = '8px';
-        item.setAttribute('title', `Click to trace discrete C++ augmenting paths and allocations for ${s.name}`);
         item.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; margin-bottom:4px;">
-            <span style="font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-              <span style="width:7px; height:7px; border-radius:50%; background:${isOffline ? 'var(--accent-rose)' : (isOrigin ? '#c084fc' : 'var(--accent-emerald)')};"></span>
-              ${s.name}
-            </span>
-            <span class="badge ${isOffline ? 'badge-rose' : (isOrigin ? 'badge-purple' : 'badge-emerald')}" style="font-size:0.64rem; padding:1px 6px;">
-              ${isOffline ? 'OFFLINE' : (isOrigin ? (projLoad > 0 ? 'SPILLOVER ACTIVE' : 'IN RESERVE') : 'ACTIVE ONLINE')}
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; margin-bottom:3px;">
+            <span style="font-weight:600; color:var(--text-primary);">${s.name}</span>
+            <span class="badge ${isOffline ? 'badge-rose' : 'badge-emerald'}" style="font-size:0.65rem; padding:1px 6px;">
+              ${isOffline ? 'FAILED / OFFLINE' : 'ACTIVE ONLINE'}
             </span>
           </div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px; font-size:0.7rem; color:var(--text-muted); font-family:var(--font-mono); margin-bottom:4px;">
-            <span>Pre-Load: <strong style="color:var(--text-secondary);">${Math.round(preLoad).toLocaleString()}</strong></span>
-            <span>Allocated: <strong style="color:${newAlloc > 0 ? (isOrigin ? 'var(--accent-rose)' : 'var(--accent-emerald)') : 'var(--text-muted)'};">+${Math.round(newAlloc).toLocaleString()}</strong></span>
-            <span>Projected: <strong style="color:var(--text-primary);">${Math.round(projLoad).toLocaleString()}</strong> / ${isOrigin ? '∞' : s.cap.toLocaleString()}</span>
-            <span>Remaining: <strong style="color:var(--accent-blue);">${isOrigin ? '∞' : Math.round(remCap).toLocaleString()}</strong></span>
+          <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono); margin-bottom:2px;">
+            <span>Load: ${Math.round(load).toLocaleString()} / ${s.cap.toLocaleString()} req/s</span>
+            <span>${util.toFixed(1)}%</span>
           </div>
-          <div class="progress-bar" style="height:3px;">
-            <div class="progress-fill" style="width: ${Math.min(100, util)}%; background:${isOffline ? 'var(--accent-rose)' : (isOrigin ? '#a855f7' : (util > 85 ? 'var(--accent-amber)' : 'var(--accent-emerald)'))};"></div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: ${Math.min(100, util)}%; background:${isOffline ? 'var(--accent-rose)' : (util > 85 ? 'var(--accent-amber)' : 'var(--accent-emerald)')};"></div>
           </div>
         `;
-        item.addEventListener('click', () => {
-          serverList.querySelectorAll('.server-inventory-card').forEach(c => c.classList.remove('active-server'));
-          item.classList.add('active-server');
-          this.renderAllocationProvenance(s.name);
-          GraphVisualizer.highlightServer(s.name);
-        });
         serverList.appendChild(item);
       }
     }
@@ -455,30 +428,20 @@ export const Inspector = {
     const winners = regionCandidates.filter(c => (c.flow_allocated || 0) > 0).sort((a, b) => b.flow_allocated - a.flow_allocated);
     const primary = winners[0] || regionCandidates[0];
 
-    regionCandidates.forEach((cand, candIdx) => {
-      const isWinner = (cand.flow_allocated > 0);
-      const isPartiallyFeasible = (cand.eligibility === 'PARTIALLY_FEASIBLE');
-      const safeServerId = `${this.selectedRegion}_${cand.server.replace(/\s+/g, '_')}`;
-
+    regionCandidates.forEach(cand => {
       const tr = document.createElement('tr');
-      tr.id = `candidateRow_${safeServerId}`;
+      const isWinner = (cand.flow_allocated > 0);
       if (isWinner) {
         tr.style.background = 'rgba(16, 185, 129, 0.08)';
         tr.style.borderLeft = '4px solid var(--accent-emerald)';
-      } else if (isPartiallyFeasible) {
-        tr.style.background = 'rgba(245, 158, 11, 0.05)';
-        tr.style.borderLeft = '4px solid var(--accent-amber)';
       }
 
       tr.style.cursor = 'pointer';
-      tr.setAttribute('title', `Click to inspect route path and flow provenance for ${cand.server}`);
-      tr.addEventListener('click', (e) => {
-        // Prevent row selection if clicking formula toggle button
-        if (e.target.closest('.btn-formula-toggle')) return;
+      tr.setAttribute('title', `Click to inspect and visualize route path to ${cand.server} on graph`);
+      tr.addEventListener('click', () => {
         tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected-candidate-row'));
         tr.classList.add('selected-candidate-row');
         GraphVisualizer.highlightCandidatePath(this.selectedRegion, cand.server, cand);
-        this.renderAllocationProvenance(cand.server);
       });
 
       // Column 1: Candidate Server & Route Status
@@ -496,28 +459,16 @@ export const Inspector = {
             ${Math.round(cand.flow_allocated).toLocaleString()} req/s (${cand.allocation_pct.toFixed(1)}% routed)
           </div>
         `;
-      } else if (isPartiallyFeasible) {
-        serverBadge = `
-          <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
-            <span class="badge badge-partially-feasible">
-              PARTIALLY FEASIBLE
-            </span>
-            <span style="font-weight:600; font-size:0.84rem; color:var(--text-primary);">${cand.server}</span>
-          </div>
-          <div style="font-size:0.7rem; color:var(--accent-amber); font-family:var(--font-mono); margin-left:2px;">
-            Max Headroom: ${Math.round(cand.max_allocatable_traffic || 0).toLocaleString()} req/s
-          </div>
-        `;
       } else if (cand.is_origin) {
         serverBadge = `
           <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
-            <span class="badge" style="background:rgba(168,85,247,0.12); color:#c084fc; border:1px solid rgba(168,85,247,0.3); font-size:0.65rem; padding:2px 6px;">
-              ORIGIN (FALLBACK)
+            <span class="badge" style="background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.3); font-size:0.65rem; padding:2px 6px;">
+              ORIGIN (STANDBY)
             </span>
             <span style="font-weight:600; font-size:0.84rem; color:var(--text-secondary);">${cand.server}</span>
           </div>
           <div style="font-size:0.7rem; color:var(--text-muted); font-family:var(--font-mono); margin-left:2px;">
-            ${cand.flow_allocated > 0 ? `Spillover Active: ${Math.round(cand.flow_allocated).toLocaleString()} req/s` : 'Zero Spillover (0 req/s — Standby Reserve)'}
+            ${cand.flow_allocated > 0 ? `Spillover Active: ${Math.round(cand.flow_allocated).toLocaleString()} req/s` : 'Zero Spillover (0 req/s — In Reserve)'}
           </div>
         `;
       } else {
@@ -534,144 +485,91 @@ export const Inspector = {
         `;
       }
 
-      // Column 2: Physical Latency & Congestion
-      const congDelay = cand.link_congestion_ms || 0;
-      const congSource = cand.link_congestion_source || 'Injected fiber transit queueing delay (95% carrier utilization)';
-      const bgUtil = cand.link_background_util_pct || 95;
-      const formulaLat = cand.link_effective_latency_formula || `${cand.link_base_latency_ms.toFixed(1)}ms (base) + ${congDelay.toFixed(1)}ms (cong) = ${cand.link_effective_latency_ms.toFixed(1)}ms`;
-
+      // Column 2: Latency (SLA)
+      const congText = cand.link_congestion_ms > 0 ? `<div style="color:var(--accent-rose); font-size:0.68rem; font-family:var(--font-mono);">(+${cand.link_congestion_ms.toFixed(0)}ms cong)</div>` : '';
       const latencyCell = `
-        <div style="font-family:var(--font-mono); font-weight:700; font-size:0.84rem; color:${!cand.server_healthy ? 'var(--accent-rose)' : (isWinner ? 'var(--accent-emerald)' : 'var(--text-primary)')};">
+        <div style="font-family:var(--font-mono); font-weight:700; font-size:0.82rem; color:${!cand.server_healthy ? 'var(--accent-rose)' : (isWinner ? 'var(--accent-emerald)' : 'var(--text-primary)')};">
           ${!cand.server_healthy ? 'OFFLINE' : `${cand.link_effective_latency_ms.toFixed(1)} ms`}
         </div>
         <div style="font-size:0.68rem; color:var(--text-muted); font-family:var(--font-mono);">Base: ${cand.link_base_latency_ms.toFixed(1)} ms</div>
-        ${congDelay > 0 ? `
-          <div style="color:var(--accent-amber); font-size:0.68rem; font-family:var(--font-mono); font-weight:600; margin-top:2px;">
-            +${congDelay.toFixed(0)} ms queue delay
-          </div>
-          <div style="font-size:0.62rem; color:var(--text-muted); line-height:1.2; margin-top:1px;" title="${congSource}">
-            ${bgUtil}% carrier load (${congSource.length > 28 ? congSource.substring(0, 26) + '...' : congSource})
-          </div>
-        ` : ''}
+        ${congText}
       `;
 
-      // Column 3: Link Bandwidth (4 Explicit Values: Pre, Allocated, Projected, Remaining)
+      // Column 3: Transit Link (Flow / Capacity)
       const isUnlimitedBw = cand.link_bandwidth_capacity > 90000;
-      const linkPre = cand.link_existing_load || 0;
-      const linkAlloc = cand.link_new_allocated || 0;
-      const linkProj = cand.link_projected_load || 0;
-      const linkCap = cand.link_bandwidth_capacity || 4000;
-      const linkRem = cand.link_remaining_bandwidth || (linkCap - linkProj);
-      const linkUtil = cand.link_projected_util_pct || (isUnlimitedBw ? 0 : (linkProj / linkCap * 100));
+      const capText = isUnlimitedBw ? '∞ (Unlimited)' : `${Math.round(cand.link_bandwidth_capacity).toLocaleString()} req/s`;
+      let flowText = '';
+      let remText = '';
+      if (isUnlimitedBw) {
+        flowText = cand.flow_allocated > 0 
+          ? `<span style="color:var(--accent-rose); font-weight:700;">Flow: ${Math.round(cand.flow_allocated).toLocaleString()} req/s</span>`
+          : `<span style="color:var(--text-muted);">Flow: 0 req/s routed</span>`;
+        remText = `<span style="color:var(--text-muted);">Unlimited fallback headroom</span>`;
+      } else {
+        flowText = cand.flow_allocated > 0 
+          ? `<span style="color:var(--accent-blue); font-weight:700;">Flow: ${Math.round(cand.flow_allocated).toLocaleString()} req/s (${cand.link_utilization_pct.toFixed(0)}% link load)</span>`
+          : `<span style="color:var(--text-muted);">Flow: 0 req/s routed (0% link load)</span>`;
+        remText = cand.flow_allocated > 0 
+          ? `<span style="color:var(--accent-emerald);">Free: ${Math.round(cand.link_remaining_bandwidth).toLocaleString()} req/s available</span>`
+          : `<span style="color:var(--text-muted);">Free: ${Math.round(cand.link_bandwidth_capacity).toLocaleString()} req/s (100% available)</span>`;
+      }
 
       const linkCell = `
-        <div style="font-family:var(--font-mono); font-size:0.72rem; line-height:1.45;">
-          <div>Pre: <span style="color:var(--text-secondary);">${Math.round(linkPre).toLocaleString()} req/s</span></div>
-          <div>Alloc: <span style="color:${linkAlloc > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)'}; font-weight:700;">+${Math.round(linkAlloc).toLocaleString()} req/s</span></div>
-          <div>Proj: <strong style="color:var(--text-primary);">${Math.round(linkProj).toLocaleString()}</strong> / ${isUnlimitedBw ? '∞' : Math.round(linkCap).toLocaleString()} <span style="color:var(--accent-blue);">(${linkUtil.toFixed(0)}%)</span></div>
-          <div>Rem: <span style="color:var(--accent-emerald); font-weight:600;">${isUnlimitedBw ? '∞' : Math.round(linkRem).toLocaleString()} req/s free</span></div>
+        <div style="font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:var(--text-primary);">
+          Cap: ${capText}
+        </div>
+        <div style="font-size:0.72rem; font-family:var(--font-mono); margin-top:2px;">
+          ${flowText}
+        </div>
+        <div style="font-size:0.68rem; font-family:var(--font-mono);">
+          ${remText}
         </div>
       `;
 
-      // Column 4: Server Processing Capacity (4 Explicit Values: Pre, Allocated, Projected, Remaining)
-      const isOrigin = !!cand.is_origin;
-      const srvPre = cand.server_existing_load || 0;
-      const srvAlloc = cand.server_new_allocated || (isWinner ? cand.flow_allocated : 0);
-      const srvProj = cand.server_projected_load || (srvPre + srvAlloc);
-      const srvCap = cand.server_total_capacity || (isOrigin ? 999999 : 5000);
-      const srvRem = cand.server_remaining_capacity != null ? cand.server_remaining_capacity : Math.max(0, srvCap - srvProj);
-      const srvUtil = cand.server_projected_util_pct || (isOrigin ? 0 : (srvProj / srvCap * 100));
-
-      const fleetLoadCell = isOrigin ? `
-        <div style="font-family:var(--font-mono); font-size:0.72rem; line-height:1.45;">
-          <div style="color:var(--text-muted);">Central DC Fallback</div>
-          <div>Alloc: <span style="color:${srvAlloc > 0 ? 'var(--accent-rose)' : 'var(--text-muted)'}; font-weight:700;">+${Math.round(srvAlloc).toLocaleString()} req/s</span></div>
-          <div>Proj: <strong style="color:var(--text-primary);">${Math.round(srvProj).toLocaleString()}</strong> / ∞</div>
-          <div style="color:var(--accent-emerald); font-weight:600;">Unlimited Headroom</div>
-        </div>
+      // Column 4: Fleet Load & Cap
+      const fleetLoadCell = cand.is_origin ? `
+        <div style="font-family:var(--font-mono); font-size:0.78rem; color:var(--text-muted);">Unlimited Cap</div>
+        <div style="font-size:0.68rem; color:var(--text-muted);">Fallback Tier</div>
       ` : `
-        <div style="font-family:var(--font-mono); font-size:0.72rem; line-height:1.45;">
-          <div>Pre: <span style="color:var(--text-secondary);">${Math.round(srvPre).toLocaleString()} req/s</span></div>
-          <div>Alloc: <span style="color:${srvAlloc > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)'}; font-weight:700;">+${Math.round(srvAlloc).toLocaleString()} req/s</span></div>
-          <div>Proj: <strong style="color:var(--text-primary);">${Math.round(srvProj).toLocaleString()}</strong> / ${Math.round(srvCap).toLocaleString()} <span style="color:${srvUtil > 80 ? 'var(--accent-amber)' : 'var(--accent-blue)'};">(${srvUtil.toFixed(1)}%)</span></div>
-          <div>Rem: <span style="color:var(--accent-emerald); font-weight:600;">${Math.round(srvRem).toLocaleString()} req/s free</span></div>
+        <div style="font-family:var(--font-mono); font-size:0.78rem; color:var(--text-primary);">
+          ${Math.round(cand.server_existing_load).toLocaleString()} / ${Math.round(cand.server_total_capacity).toLocaleString()} req/s
+        </div>
+        <div style="font-size:0.68rem; color:${cand.server_utilization_pct > 80 ? 'var(--accent-amber)' : 'var(--text-muted)'}; font-family:var(--font-mono);">
+          Fleet Load: ${cand.server_utilization_pct.toFixed(1)}%
         </div>
       `;
 
-      // Column 5: Cache Hit Ratio & Miss Penalty
-      const hitRatio = cand.cache_hit_ratio || 0;
-      const missRatio = 1.0 - hitRatio;
-      const missPenalty = missRatio * 20.0;
+      // Column 5: Cache Hit
       const cacheCell = `
-        <div style="font-family:var(--font-mono); font-weight:700; font-size:0.82rem; color:${hitRatio >= 0.8 ? 'var(--accent-blue)' : 'var(--text-secondary)'};">
-          ${(hitRatio * 100).toFixed(0)}%
-        </div>
-        <div style="font-size:0.65rem; color:var(--text-muted); font-family:var(--font-mono);">
-          Miss: ${(missRatio * 100).toFixed(0)}%
-        </div>
-        <div style="font-size:0.62rem; color:var(--text-muted); font-family:var(--font-mono);">
-          Miss Pen: +$${missPenalty.toFixed(1)}
+        <div style="font-family:var(--font-mono); font-weight:700; font-size:0.82rem; color:${cand.cache_hit_ratio >= 0.8 ? 'var(--accent-blue)' : 'var(--text-secondary)'};">
+          ${cand.cache_hit_ratio > 0 ? `${(cand.cache_hit_ratio * 100).toFixed(0)}%` : '0%'}
         </div>
       `;
 
-      // Column 6: Unit Cost ($/req) + Formula Details Expansion Button
-      const unitCostVal = cand.cost_formula?.unit_cost != null ? cand.cost_formula.unit_cost : 0;
+      // Column 6: Unit Cost ($/req)
+      const formulaStr = (cand.cost_formula && cand.cost_formula.formula_string) || `C = ${cand.cost_formula?.unit_cost || 0}`;
       const costCell = `
         <div style="font-family:var(--font-mono); font-weight:700; font-size:0.85rem; color:${isWinner ? 'var(--accent-emerald)' : 'var(--accent-blue)'};">
-          $${unitCostVal.toFixed(2)} / req
+          $${cand.cost_formula?.unit_cost?.toFixed(2) || '0.00'} / req
         </div>
-        <div class="formula-display-pill" style="font-size:0.62rem; margin-top:2px;" title="${cand.cost_formula?.formula_string || ''}">
-          C = 1.0·${cand.link_effective_latency_ms.toFixed(0)}ms + ...
+        <div class="formula-display-pill" style="font-size:0.65rem; max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${formulaStr}">
+          ${formulaStr}
         </div>
-        <button class="btn btn-outline btn-xs btn-formula-toggle" data-drawer-id="drawer_${safeServerId}" style="font-size:0.64rem; padding:1px 6px; margin-top:4px; border-color:rgba(59,130,246,0.3); color:var(--accent-blue);">
-          Formula Details ▾
-        </button>
       `;
 
-      // Column 7: Eligibility & Quantitative Decision Reason
-      let eligibilityBadge = '';
+      // Column 7: Algorithm Decision & Reason
+      let decisionReason = '';
       if (!cand.server_healthy) {
-        eligibilityBadge = `<span class="badge badge-rose" style="font-size:0.65rem;">HARDWARE OUTAGE</span>`;
+        decisionReason = `<span class="badge badge-rose" style="font-size:0.65rem;">EXCLUDED</span> <div style="font-size:0.7rem; color:#f87171; margin-top:2px;">Offline due to hardware outage.</div>`;
       } else if (isWinner) {
-        eligibilityBadge = `<span class="badge badge-emerald" style="font-size:0.65rem;">SELECTED OPTIMUM</span>`;
-      } else if (isPartiallyFeasible) {
-        eligibilityBadge = `<span class="badge badge-partially-feasible" style="font-size:0.65rem;">PARTIALLY FEASIBLE</span>`;
+        decisionReason = `<span class="badge badge-emerald" style="font-size:0.65rem;">SELECTED</span> <div style="font-size:0.7rem; color:var(--accent-emerald); font-weight:600; margin-top:2px;">Global minimum cost ($${cand.cost_formula?.unit_cost?.toFixed(2)}) & lowest latency (${cand.link_effective_latency_ms.toFixed(1)}ms).</div>`;
       } else if (cand.is_origin) {
-        eligibilityBadge = `<span class="badge badge-purple" style="font-size:0.65rem;">ORIGIN FALLBACK</span>`;
-      } else if (cand.eligibility === 'SATURATED') {
-        eligibilityBadge = `<span class="badge badge-rose" style="font-size:0.65rem;">SATURATED</span>`;
+        decisionReason = `<span class="badge badge-purple" style="font-size:0.65rem;">IN RESERVE</span> <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">Zero spillover (0 req/s); edge POP capacity was sufficient.</div>`;
       } else {
-        eligibilityBadge = `<span class="badge badge-outline" style="font-size:0.65rem; color:var(--text-muted);">STANDBY (ELIGIBLE)</span>`;
-      }
-
-      let decisionReasonText = '';
-      if (!cand.server_healthy) {
-        decisionReasonText = `Offline due to active hardware outage. Node pruned from algorithm flow graph.`;
-      } else if (isWinner) {
-        decisionReasonText = `Global minimum unit cost ($${unitCostVal.toFixed(2)}) & lowest effective latency (${cand.link_effective_latency_ms.toFixed(1)}ms).`;
-      } else if (isPartiallyFeasible) {
-        decisionReasonText = `Can accept max ${Math.round(cand.max_allocatable_traffic || 0).toLocaleString()} req/s of demand due to link/server headroom bottleneck.`;
-      } else if (cand.is_origin) {
-        decisionReasonText = cand.flow_allocated > 0 
-          ? `Absorbing ${Math.round(cand.flow_allocated).toLocaleString()} req/s overflow spillover.`
-          : `Standby reserve; high origin penalty ($177.50/req) avoided because edge POP headroom was sufficient.`;
-      } else {
-        const costDiff = unitCostVal - (primary.cost_formula?.unit_cost || 0);
+        const costDiff = (cand.cost_formula?.unit_cost || 0) - (primary.cost_formula?.unit_cost || 0);
         const latDiff = cand.link_effective_latency_ms - (primary.link_effective_latency_ms || 0);
-        decisionReasonText = `Suboptimal: +${latDiff > 0 ? latDiff.toFixed(1) : 0}ms latency, +$${costDiff > 0 ? costDiff.toFixed(2) : '0.00'}/req cost vs optimum.`;
+        decisionReason = `<span class="badge badge-outline" style="font-size:0.65rem; color:var(--text-muted);">STANDBY</span> <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">Suboptimal: +${latDiff > 0 ? latDiff.toFixed(1) : 0}ms latency, +$${costDiff > 0 ? costDiff.toFixed(2) : '0.00'}/req cost.</div>`;
       }
-
-      const decisionCell = `
-        <div style="margin-bottom:3px;">
-          ${eligibilityBadge}
-        </div>
-        <div style="font-size:0.68rem; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:2px;">
-          Max Feasible: <strong style="color:var(--text-primary);">${Math.round(cand.max_allocatable_traffic || 0).toLocaleString()} req/s</strong>
-        </div>
-        <div style="font-size:0.68rem; color:${isWinner ? 'var(--accent-emerald)' : 'var(--text-muted)'}; line-height:1.3;">
-          ${decisionReasonText}
-        </div>
-      `;
 
       tr.innerHTML = `
         <td>${serverBadge}</td>
@@ -680,345 +578,21 @@ export const Inspector = {
         <td>${fleetLoadCell}</td>
         <td>${cacheCell}</td>
         <td>${costCell}</td>
-        <td>${decisionCell}</td>
+        <td>${decisionReason}</td>
       `;
+
       tbody.appendChild(tr);
-
-      // Expandable In-Row Formula Details Drawer Row
-      const trDrawer = document.createElement('tr');
-      trDrawer.id = `drawer_${safeServerId}`;
-      trDrawer.className = 'formula-details-row';
-      trDrawer.style.display = 'none';
-
-      const latTerm = cand.cost_formula?.latency_term != null ? cand.cost_formula.latency_term : (1.0 * cand.link_effective_latency_ms);
-      const bwCostRate = cand.cost_formula?.bandwidth_cost != null ? cand.cost_formula.bandwidth_cost : 1.0;
-      const bwTerm = cand.cost_formula?.bandwidth_term != null ? cand.cost_formula.bandwidth_term : (1.5 * bwCostRate);
-      const cacheMissTerm = cand.cost_formula?.cache_miss_term != null ? cand.cost_formula.cache_miss_term : missPenalty;
-
-      trDrawer.innerHTML = `
-        <td colspan="7" style="padding:0; border-top:none;">
-          <div class="formula-details-drawer">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:6px;">
-              <div>
-                <strong style="color:var(--accent-blue); font-size:0.85rem;">C++ Multi-Factor Cost Model: ${cand.server} (Region: ${this.selectedRegion})</strong>
-                <span style="font-family:var(--font-mono); font-size:0.7rem; color:var(--text-muted); margin-left:10px;">Exact Formula Executed by C++ Engine</span>
-              </div>
-              <button class="btn btn-outline btn-xs btn-close-drawer" data-drawer-id="drawer_${safeServerId}" style="font-size:0.65rem; padding:1px 6px;">✕ Close</button>
-            </div>
-
-            <!-- Mathematical Formula Specification -->
-            <div style="background:rgba(0,0,0,0.3); border:1px solid var(--border-subtle); border-radius:4px; padding:8px 12px; margin-bottom:10px; font-family:var(--font-mono); font-size:0.82rem; color:var(--text-primary);">
-              <code>C_unit = (α · L_effective) + (β · B_transit) + ((1 - H) · M_penalty)</code>
-              <div style="margin-top:4px; font-size:0.74rem; color:var(--accent-emerald);">
-                = (1.0 · ${cand.link_effective_latency_ms.toFixed(1)}ms) + (1.5 · $${bwCostRate.toFixed(2)}) + ((1 - ${hitRatio.toFixed(2)}) · 20.0)
-                = <strong>$${unitCostVal.toFixed(2)} simulated cost points per request</strong>
-              </div>
-            </div>
-
-            <!-- 3 Expanded Term Tiles -->
-            <div class="formula-grid-3">
-              <div class="formula-term-box">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                  <span style="font-weight:700; color:var(--text-primary);">1. Latency SLA Term</span>
-                  <span class="term-badge-opt">Optimization Term</span>
-                </div>
-                <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:4px;">Weight α = 1.0 points/ms</div>
-                <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--accent-blue);">
-                  1.0 × ${cand.link_effective_latency_ms.toFixed(1)} ms = <strong>+$${latTerm.toFixed(2)}</strong>
-                </div>
-                <div style="font-size:0.66rem; color:var(--text-muted); margin-top:4px; line-height:1.2;">
-                  Propagation delay (${cand.link_base_latency_ms.toFixed(1)}ms) + carrier queueing delay (${congDelay.toFixed(1)}ms).
-                </div>
-              </div>
-
-              <div class="formula-term-box">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                  <span style="font-weight:700; color:var(--text-primary);">2. Bandwidth Transit Term</span>
-                  <span class="term-badge-opt">Optimization Term</span>
-                </div>
-                <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:4px;">Weight β = 1.5 billing rate</div>
-                <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--accent-blue);">
-                  1.5 × $${bwCostRate.toFixed(2)} = <strong>+$${bwTerm.toFixed(2)}</strong>
-                </div>
-                <div style="font-size:0.66rem; color:var(--text-muted); margin-top:4px; line-height:1.2;">
-                  Carrier transit billing cost for dedicated link.
-                </div>
-              </div>
-
-              <div class="formula-term-box">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                  <span style="font-weight:700; color:var(--text-primary);">3. Cache Miss Penalty</span>
-                  <span class="term-badge-opt">Optimization Term</span>
-                </div>
-                <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:4px;">Weight M = 20.0 origin penalty</div>
-                <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--accent-blue);">
-                  (1 - ${hitRatio.toFixed(2)}) × 20.0 = <strong>+$${cacheMissTerm.toFixed(2)}</strong>
-                </div>
-                <div style="font-size:0.66rem; color:var(--text-muted); margin-top:4px; line-height:1.2;">
-                  Penalty for fetching uncached assets from central origin DB.
-                </div>
-              </div>
-            </div>
-
-            <!-- Hard Constraints & Verification Table -->
-            <div style="margin-top:10px; display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:10px; font-size:0.72rem;">
-              <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-subtle); border-radius:4px; padding:6px 10px;">
-                <span class="term-badge-constraint" style="margin-right:6px;">Hard Constraints</span>
-                <span style="color:var(--text-secondary);">
-                  Server Capacity: <strong>${isOrigin ? '∞' : Math.round(srvCap).toLocaleString()} req/s</strong> |
-                  Link Capacity: <strong>${isUnlimitedBw ? '∞' : Math.round(linkCap).toLocaleString()} req/s</strong> |
-                  Health: <strong>${cand.server_healthy ? 'ONLINE' : 'OFFLINE'}</strong>
-                </span>
-              </div>
-              <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-subtle); border-radius:4px; padding:6px 10px;">
-                <span class="term-badge-mon" style="margin-right:6px;">Cost Unit Meaning</span>
-                <span style="color:var(--text-secondary);">
-                  Dimensionless operational penalty per request combining latency SLA violation risk ($1/ms), transit rate ($1.5/unit), and egress cost ($20/miss).
-                </span>
-              </div>
-            </div>
-          </div>
-        </td>
-      `;
-      tbody.appendChild(trDrawer);
-    });
-
-    // Attach Toggle Listeners for Formula Details Drawers
-    tbody.querySelectorAll('.btn-formula-toggle').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const drawerId = btn.getAttribute('data-drawer-id');
-        const drawer = document.getElementById(drawerId);
-        if (drawer) {
-          const isHidden = (drawer.style.display === 'none');
-          drawer.style.display = isHidden ? 'table-row' : 'none';
-          btn.textContent = isHidden ? 'Formula Details ▴' : 'Formula Details ▾';
-        }
-      });
-    });
-
-    tbody.querySelectorAll('.btn-close-drawer').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const drawerId = btn.getAttribute('data-drawer-id');
-        const drawer = document.getElementById(drawerId);
-        if (drawer) {
-          drawer.style.display = 'none';
-          const toggleBtn = tbody.querySelector(`[data-drawer-id="${drawerId}"]`);
-          if (toggleBtn) toggleBtn.textContent = 'Formula Details ▾';
-        }
-      });
     });
 
     // Auto-select and visualize primary winning candidate on the graph
-    const firstRow = tbody.querySelector('tr[id^="candidateRow_"]');
+    const firstRow = tbody.querySelector('tr');
     if (firstRow) {
       firstRow.classList.add('selected-candidate-row');
       GraphVisualizer.highlightCandidatePath(this.selectedRegion, primary.server, primary);
     }
 
-    // Auto-render Allocation Provenance for Primary Server
-    this.renderAllocationProvenance(primary.server);
-
     // 4. Render In-Depth Decision Synthesis: Mathematical Proof & CDN System Flow
     this.renderDecisionSynthesis(regionCandidates, regionDemand);
-  },
-
-  renderAllocationProvenance(serverName) {
-    const container = document.getElementById('inspectorAllocationProvenance');
-    if (!container || !this.currentSnapshot) return;
-
-    const routing = this.currentSnapshot.routing || {};
-    const allocations = routing.allocations || [];
-    const serverLoads = routing.serverLoads || {};
-    const serverUtils = routing.serverUtilPct || {};
-    const failed = new Set(this.currentSnapshot.failed_servers || []);
-
-    // Filter all allocations routing to this server
-    const serverAllocations = allocations.filter(a => a.server === serverName && (a.flow || 0) > 0);
-    const totalAllocated = serverAllocations.reduce((sum, a) => sum + (a.flow || 0), 0);
-    const isOrigin = serverName.includes('Origin');
-    const isOffline = failed.has(serverName);
-
-    // Derive server capacity
-    let serverCap = isOrigin ? 999999 : 5000;
-    const candsMap = this.currentSnapshot.candidates_by_region || {};
-    for (const reg in candsMap) {
-      const c = candsMap[reg].find(x => x.server === serverName);
-      if (c) {
-        serverCap = c.server_total_capacity;
-        break;
-      }
-    }
-    const projLoad = serverLoads[serverName] || totalAllocated;
-    const remCap = isOrigin ? '∞' : Math.max(0, serverCap - projLoad);
-
-    // Filter genuine C++ execution trace steps for this destination server
-    const trace = this.currentTrace || {};
-    const steps = trace.steps || [];
-    const serverShort = serverName.replace(' Server', '');
-
-    const relevantSteps = steps.filter(st => {
-      const inPath = (st.pathNodeNames || []).some(n => n.includes(serverShort) || n.includes(serverName));
-      const inUpdates = (st.edgeUpdates || []).some(u => u.toName.includes(serverShort) || u.toName.includes(serverName) || u.fromName.includes(serverShort) || u.fromName.includes(serverName));
-      const inDetails = st.details && Object.values(st.details).some(v => v.includes(serverShort) || v.includes(serverName));
-      return inPath || inUpdates || inDetails;
-    });
-
-    const augmentingSteps = relevantSteps.filter(st => (st.phase === 'FLOW_AUGMENT' || (st.bottleneckFlow || 0) > 0));
-    const sumBottlenecks = augmentingSteps.reduce((s, st) => s + (st.bottleneckFlow || 0), 0);
-
-    // Build contributing regions rows HTML
-    let contributingRowsHtml = '';
-    if (serverAllocations.length === 0) {
-      contributingRowsHtml = `
-        <tr>
-          <td colspan="5" style="text-align:center; padding:12px; color:var(--text-muted); font-size:0.75rem;">
-            No incoming traffic allocated to ${serverName} during this decision cycle. (0 req/s — Standby Reserve)
-          </td>
-        </tr>
-      `;
-    } else {
-      contributingRowsHtml = serverAllocations.map(a => {
-        const regDemand = (this.currentSnapshot.demands && this.currentSnapshot.demands[a.region]) || a.flow;
-        const regPct = regDemand > 0 ? ((a.flow / regDemand) * 100).toFixed(1) : '100.0';
-        return `
-          <tr>
-            <td style="font-weight:700; color:var(--accent-blue);">${a.region}</td>
-            <td style="font-family:var(--font-mono); font-weight:700; color:var(--accent-emerald);">${Math.round(a.flow).toLocaleString()} req/s</td>
-            <td style="font-family:var(--font-mono); color:var(--text-secondary);">${regPct}% of regional demand</td>
-            <td style="font-family:var(--font-mono); color:var(--text-primary);">$${(a.unitCost || 0).toFixed(2)} / req</td>
-            <td style="font-family:var(--font-mono); font-weight:700; color:var(--accent-blue);">$${Math.round(a.totalCost || (a.flow * a.unitCost)).toLocaleString()} / tick</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    // Build discrete C++ algorithm execution trace steps HTML
-    let traceStepsHtml = '';
-    if (relevantSteps.length === 0) {
-      traceStepsHtml = `
-        <div style="padding:10px; color:var(--text-muted); font-size:0.75rem; text-align:center;">
-          No discrete augmentation events recorded for ${serverName}.
-        </div>
-      `;
-    } else {
-      traceStepsHtml = relevantSteps.map(st => {
-        const pathSeq = (st.pathNodeNames && st.pathNodeNames.length > 0)
-          ? st.pathNodeNames.join(' &rarr; ')
-          : (st.action || 'Augmentation');
-        const bottleneckText = st.bottleneckFlow > 0 ? `&Delta; = +${Math.round(st.bottleneckFlow).toLocaleString()} req/s` : '';
-
-        let updatesHtml = '';
-        if (st.edgeUpdates && st.edgeUpdates.length > 0) {
-          updatesHtml = st.edgeUpdates.map(u => `
-            <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">
-              &bull; ${u.fromName} &rarr; ${u.toName}: Flow ${Math.round(u.prevFlow)} &rarr; <strong style="color:var(--text-primary);">${Math.round(u.newFlow)}</strong> req/s | Residual ${Math.round(u.prevResidual)} &rarr; <strong style="color:var(--accent-emerald);">${Math.round(u.newResidual)}</strong> req/s
-            </div>
-          `).join('');
-        }
-
-        return `
-          <div class="provenance-path-item">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-              <span style="font-weight:700; color:var(--accent-blue);">Step #${st.stepNumber}: ${st.action}</span>
-              ${bottleneckText ? `<span class="badge badge-emerald" style="font-size:0.65rem;">${bottleneckText}</span>` : ''}
-            </div>
-            <div style="color:var(--text-secondary); margin-bottom:4px; font-size:0.74rem;">
-              <strong>Path:</strong> ${pathSeq}
-            </div>
-            ${updatesHtml}
-          </div>
-        `;
-      }).join('');
-    }
-
-    container.innerHTML = `
-      <div class="provenance-card">
-        <!-- Header -->
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:10px;">
-          <div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span class="badge ${isOffline ? 'badge-rose' : (isOrigin ? 'badge-purple' : 'badge-emerald')}" style="font-size:0.72rem; font-weight:700; padding:2px 8px;">
-                ${isOffline ? 'OFFLINE' : (isOrigin ? 'ORIGIN FALLBACK' : 'EDGE POP')}
-              </span>
-              <h3 style="font-size:1.05rem; font-weight:700; margin:0; color:var(--text-primary);">
-                Allocation Provenance & Augmenting Path Breakdown: ${serverName}
-              </h3>
-            </div>
-            <p style="font-size:0.74rem; color:var(--text-muted); margin:4px 0 0 0;">
-              Traceability audit: connecting final server throughput directly back to C++ residual flow augmentations and regional demand sources.
-            </p>
-          </div>
-          <div style="display:flex; align-items:center; gap:16px; font-family:var(--font-mono);">
-            <div>
-              <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">Ingress Flow</div>
-              <div style="font-size:1.0rem; font-weight:700; color:var(--accent-emerald);">${Math.round(totalAllocated).toLocaleString()} req/s</div>
-            </div>
-            <div>
-              <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">Projected Load</div>
-              <div style="font-size:1.0rem; font-weight:700; color:var(--text-primary);">${Math.round(projLoad).toLocaleString()} / ${isOrigin ? '∞' : serverCap.toLocaleString()}</div>
-            </div>
-            <div>
-              <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">Remaining Headroom</div>
-              <div style="font-size:1.0rem; font-weight:700; color:var(--accent-blue);">${isOrigin ? '∞' : Math.round(remCap).toLocaleString()} req/s</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 1. Regional Demand Ingress Breakdown Table -->
-        <div style="margin-bottom:14px;">
-          <div style="font-size:0.8rem; font-weight:700; color:var(--text-primary); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            Contributing Regional Demand Sources (&Sigma; Ingress = ${Math.round(totalAllocated).toLocaleString()} req/s)
-          </div>
-          <div class="table-responsive">
-            <table class="data-table" style="font-size:0.75rem;">
-              <thead>
-                <tr>
-                  <th>Client Region</th>
-                  <th>Allocated Ingress Flow</th>
-                  <th>Regional Demand Share</th>
-                  <th>Unit Cost ($/req)</th>
-                  <th>Total Cost Contribution</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${contributingRowsHtml}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- 2. Authentic Discrete C++ Augmenting Paths / Assignments -->
-        <div style="margin-bottom:14px;">
-          <div style="font-size:0.8rem; font-weight:700; color:var(--text-primary); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Authentic C++ Execution Augmenting Paths & Graph Transitions
-          </div>
-          <div style="max-height:220px; overflow-y:auto; padding-right:4px;">
-            ${traceStepsHtml}
-          </div>
-        </div>
-
-        <!-- 3. Mathematical Conservation of Flow Verification Banner -->
-        <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3); border-radius:var(--radius-sm); padding:10px 14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-            <span style="font-size:0.78rem; font-weight:700; color:var(--accent-emerald);">
-              Mathematical Flow Conservation Verified:
-            </span>
-            <span style="font-size:0.75rem; color:var(--text-secondary); font-family:var(--font-mono);">
-              &Sigma; Regional Ingress (${Math.round(totalAllocated).toLocaleString()} req/s) &equiv; C++ Flow Allocation
-            </span>
-          </div>
-          <span class="badge badge-emerald" style="font-size:0.68rem; font-weight:700; padding:2px 8px;">
-            VERIFIED NO DRIFT
-          </span>
-        </div>
-      </div>
-    `;
-  },
   },
 
   renderDecisionCallout(regionCandidates, regionDemand) {

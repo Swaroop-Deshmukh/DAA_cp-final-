@@ -148,22 +148,37 @@ EdmondsKarpResult EdmondsKarp::calculateMaxFlow(
 
             double prevFwdFlow = fwdEdge.flow;
             double prevFwdRes = fwdEdge.getResidualCapacity();
+            double prevRevFlow = revEdge.flow;
+            double prevRevRes = revEdge.getResidualCapacity();
 
             fwdEdge.flow += delta;
             revEdge.flow -= delta;
 
-            EdgeUpdateDto upd;
-            upd.fromId = u;
-            upd.toId = curr;
-            upd.fromName = graph.getNodeInfo(u).name;
-            upd.toName = graph.getNodeInfo(curr).name;
-            upd.prevFlow = prevFwdFlow;
-            upd.newFlow = fwdEdge.flow;
-            upd.prevResidual = prevFwdRes;
-            upd.newResidual = fwdEdge.getResidualCapacity();
-            upd.isReverse = fwdEdge.isReverse;
-            upd.label = fwdEdge.label;
-            updates.push_back(upd);
+            EdgeUpdateDto fwdUp;
+            fwdUp.fromId = u;
+            fwdUp.toId = curr;
+            fwdUp.fromName = graph.getNodeInfo(u).name;
+            fwdUp.toName = graph.getNodeInfo(curr).name;
+            fwdUp.prevFlow = prevFwdFlow;
+            fwdUp.newFlow = fwdEdge.flow;
+            fwdUp.prevResidual = prevFwdRes;
+            fwdUp.newResidual = fwdEdge.getResidualCapacity();
+            fwdUp.isReverse = false;
+            fwdUp.label = fwdEdge.label;
+            updates.push_back(fwdUp);
+
+            EdgeUpdateDto revUp;
+            revUp.fromId = curr;
+            revUp.toId = u;
+            revUp.fromName = graph.getNodeInfo(curr).name;
+            revUp.toName = graph.getNodeInfo(u).name;
+            revUp.prevFlow = prevRevFlow;
+            revUp.newFlow = revEdge.flow;
+            revUp.prevResidual = prevRevRes;
+            revUp.newResidual = revEdge.getResidualCapacity();
+            revUp.isReverse = true;
+            revUp.label = fwdEdge.label + " [Residual Artifact]";
+            updates.push_back(revUp);
 
             curr = u;
         }

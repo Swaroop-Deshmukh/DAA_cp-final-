@@ -17,7 +17,7 @@ import { Inspector } from './inspector.js';
 
 class App {
   constructor() {
-    this.currentView = 'overview';
+    this.currentView = 'live';
     this.pollInterval = null;
   }
 
@@ -68,10 +68,13 @@ class App {
     // 7. Initial Data Load
     this.refreshData();
 
-    // 8. Start Background Polling (every 8 seconds)
+    // 8. Default Landing Workspace is Simulation & Algorithm Lab
+    this.switchView('live');
+
+    // 9. Start Background Polling (every 3 seconds)
     this.pollInterval = setInterval(() => {
       this.refreshData(false);
-    }, 8000);
+    }, 3000);
 
     EventLogManager.init();
   }
@@ -108,7 +111,13 @@ class App {
     });
 
     // View-specific trigger refreshes
-    if (viewName === 'topology') {
+    if (viewName === 'overview') {
+      if (window.LiveSimulation && window.LiveSimulation.lastTickData) {
+        window.LiveSimulation.updateOverviewLive(window.LiveSimulation.lastTickData);
+      } else {
+        this.refreshData();
+      }
+    } else if (viewName === 'topology') {
       TopologyViewer.render();
     } else if (viewName === 'monitoring') {
       ServerMonitoring.refresh();

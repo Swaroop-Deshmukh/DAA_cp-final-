@@ -968,6 +968,7 @@ void BaselineRouters::printComparisonTable(const std::vector<StrategyResult>& re
 std::string BaselineRouters::exportResultsJson(const std::string& scenarioTitle, 
                                               const std::vector<StrategyResult>& results) {
     std::ostringstream ss;
+    ss << std::fixed << std::setprecision(2);
     ss << "{\n";
     ss << "  \"scenario\": \"" << scenarioTitle << "\",\n";
     ss << "  \"strategies\": [\n";
@@ -1017,6 +1018,7 @@ std::string BaselineRouters::exportSingleResultJson(const Network& network,
                                                    const std::string& scenarioName, 
                                                    const std::string& explanation) {
     std::ostringstream ss;
+    ss << std::fixed << std::setprecision(2);
     ss << "{\n";
     ss << "  \"strategyName\": \"" << r.strategyName << "\",\n";
     ss << "  \"scenarioName\": \"" << scenarioName << "\",\n";
@@ -1103,6 +1105,7 @@ std::string BaselineRouters::exportSingleResultJson(const Network& network,
     ss << "  \"allocations\": [\n";
     for (size_t i = 0; i < r.allocations.size(); ++i) {
         const auto& a = r.allocations[i];
+        ss << std::fixed << std::setprecision(2);
         ss << "    {\"from\": \"" << a.fromNode << "\", \"to\": \"" << a.toNode
            << "\", \"flow\": " << a.flow << ", \"capacity\": " << a.capacity
            << ", \"unitCost\": " << a.unitCostContinuous

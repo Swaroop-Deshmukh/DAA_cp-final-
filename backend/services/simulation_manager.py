@@ -107,7 +107,7 @@ class ContinuousSimulationManager:
         self.current_demands: Dict[str, float] = dict(self.base_demands)
         self.failed_servers: List[str] = []
         self.congestion_spec: str = "none"
-        self.cache_hit_ratio: float = 0.85
+        self.cache_hit_ratio: Optional[float] = None
 
         # Replanning memory & hysteresis
         self.last_demands: Dict[str, float] = dict(self.base_demands)
@@ -184,6 +184,7 @@ class ContinuousSimulationManager:
             self.current_demands = dict(self.base_demands)
             self.failed_servers = []
             self.congestion_spec = "none"
+            self.cache_hit_ratio = None
             self.last_demands = dict(self.base_demands)
             self.last_failed_servers = []
             self.last_congestion = "none"
@@ -285,10 +286,12 @@ class ContinuousSimulationManager:
                 self.current_demands,
                 self.failed_servers,
                 self.congestion_spec,
-                routing_result
+                routing_result,
+                self.cache_hit_ratio
             )
 
             snapshot = {
+                "snapshot_id": f"snap_t{self.step}_{int(time.time())}",
                 "tick": self.step,
                 "sim_time_sec": self.sim_time_sec,
                 "timestamp": time.time(),
@@ -392,10 +395,12 @@ class ContinuousSimulationManager:
                 self.current_demands,
                 self.failed_servers,
                 self.congestion_spec,
-                routing_result
+                routing_result,
+                self.cache_hit_ratio
             )
 
             snapshot = {
+                "snapshot_id": f"snap_t{self.step}_{int(time.time())}",
                 "tick": self.step,
                 "sim_time_sec": self.sim_time_sec,
                 "timestamp": time.time(),
@@ -457,7 +462,8 @@ class ContinuousSimulationManager:
         demands: Dict[str, float],
         failed_servers: List[str],
         congestion_spec: str,
-        routing_result: Dict[str, Any]
+        routing_result: Dict[str, Any],
+        cache_hit_ratio: Optional[float] = None
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Evaluates every configured destination (4 Edge Servers + Origin Fallback)
@@ -526,14 +532,37 @@ class ContinuousSimulationManager:
                     if a.get("from") == region and a.get("to") == server:
                         flow_allocated += a.get("flow", 0.0)
 
-                # Four explicit server capacity values (Requirement 1):
-                # 1. Existing load before this region's decision
-                # 2. New traffic allocated by this decision
-                # 3. Projected load after this decision
-                # 4. Remaining capacity after allocation
-                server_existing_load = max(0.0, total_server_load - flow_allocated) if not is_origin else 0.0
+                # Server's home region (e.g. Pune Server -> Pune)
+                server_home_region = server.replace(" Server", "") if not is_origin else None
+
+                # Compute own-region vs other-regions flow for this server
+                own_region_flow = 0.0
+                other_regions_flow = 0.0
+                for a in allocations:
+                    if a.get("to") == server:
+                        a_from = a.get("from", "")
+                        a_flow = a.get("flow", 0.0)
+                        if server_home_region and a_from == server_home_region:
+                            own_region_flow += a_flow
+                        else:
+                            other_regions_flow += a_flow
+
+                # Compute server compute congestion surcharge & marginal band cost
+                server_band_allocs = [a for a in allocations if a.get("from") == server and "Sink" in a.get("to", "")]
+                server_compute_cost = sum(a.get("flow", 0.0) * a.get("unitCost", 0.0) for a in server_band_allocs)
+                server_compute_surcharge = (server_compute_cost / total_server_load) if total_server_load > 0.0 else 0.0
+                active_bands = [a for a in server_band_allocs if a.get("flow", 0.0) > 0.01]
+                server_marginal_compute_cost = max([a.get("unitCost", 0.0) for a in active_bands], default=0.0)
+
+                # Precise Server Load Decomposition (Task 2):
+                # Projected Load = External Pre-Decision Load (0) + Own Regional Allocation + Other Regional Allocations
+                external_pre_load = 0.0
+                traffic_from_current_region = flow_allocated
                 server_new_allocated = flow_allocated
-                server_projected_load = (server_existing_load + server_new_allocated) if not is_origin else flow_allocated
+                traffic_from_other_regions = max(0.0, total_server_load - flow_allocated) if not is_origin else 0.0
+                total_newly_allocated = (own_region_flow + other_regions_flow) if not is_origin else flow_allocated
+                server_projected_load = external_pre_load + total_newly_allocated
+
                 if not server_healthy:
                     server_remaining_cap = 0.0
                 elif is_origin:
@@ -543,19 +572,20 @@ class ContinuousSimulationManager:
 
                 server_projected_util_pct = (server_projected_load / server_total_cap * 100.0) if (not is_origin and server_total_cap > 0) else 0.0
 
-                # Four explicit network link bandwidth values (Requirement 1):
-                # 1. Existing link load before this decision
-                # 2. New traffic allocated on this link
-                # 3. Projected link load
-                # 4. Remaining link bandwidth
+                # Four explicit network link bandwidth values (Task 3 & 6):
+                # 1. Physical link capacity
+                # 2. Background carrier traffic (utilization %)
+                # 3. New CDN allocation on this dedicated link
+                # 4. Projected link usage and remaining bandwidth
                 bw_cap = link_info["bw_capacity"]
-                link_existing_load = 0.0  # Dedicated direct region-to-server link
+                link_existing_load = 0.0  # Dedicated direct region-to-server interconnect
                 link_new_allocated = flow_allocated
                 link_projected_load = link_existing_load + link_new_allocated
                 link_remaining_bw = max(0.0, bw_cap - link_projected_load) if not is_origin else 999999.0
                 link_projected_util_pct = (link_projected_load / bw_cap * 100.0) if (not is_origin and bw_cap > 0) else 0.0
 
-                # Congestion & Latency explanation (Requirement 2):
+                # Congestion & Latency explanation (Task 6):
+                # Effective Latency = Base Latency + Injected Transit Queueing Delay
                 cong_delay = cong_map.get(link_key, 0.0)
                 eff_latency = link_info["base_latency"] + cong_delay
                 if cong_delay > 0.0:
@@ -572,11 +602,11 @@ class ContinuousSimulationManager:
                 available_server_for_region = server_remaining_cap + server_new_allocated if not is_origin else 999999.0
                 max_allocatable_traffic = min(available_link_for_region, available_server_for_region) if not is_origin else reg_demand
 
-                # Multi-factor cost formula: C = alpha * L + beta * B + (1 - H) * M (Requirement 4)
+                # Multi-factor cost formula: C = alpha * L + beta * B + (1 - H) * M (Task 7)
                 alpha = 1.0
                 beta = 1.5
                 miss_penalty = 20.0
-                hit_ratio = link_info["hit_ratio"]
+                hit_ratio = cache_hit_ratio if cache_hit_ratio is not None else link_info["hit_ratio"]
 
                 latency_term = round(alpha * eff_latency, 2)
                 bandwidth_term = round(beta * link_info["cost"], 2)
@@ -585,13 +615,13 @@ class ContinuousSimulationManager:
                 if is_origin:
                     unit_cost = 177.50
                     scaled_cost = 17750
-                    formula_str = "C_origin = 1.0*(100.0 ms) + 1.5*(5.0 rate) + 20.0 [miss] + 50.0 [compute penalty] = $177.50 / req"
+                    formula_str = "C_origin = 1.0*(100.0 ms) + 1.5*(5.0 rate) + 20.0 [miss] + 50.0 [compute penalty] = 177.50 pts/req"
                 else:
                     unit_cost = round(latency_term + bandwidth_term + cache_miss_term, 2)
                     scaled_cost = int(round(unit_cost * 100))
-                    formula_str = f"C = {alpha}*({eff_latency:.1f}) + {beta}*({link_info['cost']:.1f}) + (1-{hit_ratio:.2f})*{miss_penalty:.0f} = ${unit_cost:.2f} / req"
+                    formula_str = f"C = {alpha}*({eff_latency:.1f}) + {beta}*({link_info['cost']:.1f}) + (1-{hit_ratio:.2f})*{miss_penalty:.0f} = {unit_cost:.2f} pts/req"
 
-                # Hard Constraints, Partial Feasibility & Eligibility (Requirement 3):
+                # Hard Constraints, Partial Feasibility & Eligibility (Task 2):
                 if not server_healthy:
                     eligibility = "EXCLUDED_OUTAGE"
                     exclusion_reason = "Server offline due to hardware outage (Available capacity = 0 req/s)"
@@ -611,20 +641,54 @@ class ContinuousSimulationManager:
                     eligibility = "ELIGIBLE"
                     exclusion_reason = f"Candidate fully feasible for 100% of demand (Headroom: {round(max_allocatable_traffic):,} req/s)"
 
+                # Canonical candidate status directly tied to final allocation & feasibility (Task 2):
+                if is_origin:
+                    candidate_status = "ORIGIN FALLBACK" if flow_allocated > 0 else "NOT USED"
+                elif not server_healthy or available_server_for_region <= 0.001 or available_link_for_region <= 0.001:
+                    candidate_status = "INELIGIBLE"
+                elif flow_allocated >= (reg_demand - 0.5) and flow_allocated > 0:
+                    candidate_status = "SELECTED"
+                elif flow_allocated > 0:
+                    candidate_status = "PARTIALLY SELECTED"
+                else:
+                    candidate_status = "NOT SELECTED"
+
                 alloc_pct = round((flow_allocated / reg_demand * 100.0), 1) if reg_demand > 0 else 0.0
                 total_cost = round(flow_allocated * unit_cost, 2)
+
+                effective_unit_cost = round(unit_cost + server_compute_surcharge, 2)
+                effective_marginal_cost = round(unit_cost + server_marginal_compute_cost, 2)
+                total_transit_cost = round(flow_allocated * unit_cost, 2)
+                total_compute_cost = round(flow_allocated * server_compute_surcharge, 2)
+                total_end_to_end_cost = round(total_transit_cost + total_compute_cost, 2)
 
                 candidate_record = {
                     "region": region,
                     "server": server,
                     "is_origin": is_origin,
                     "server_healthy": server_healthy,
+                    "candidate_status": candidate_status,
+                    "server_home_region": server_home_region,
                     "server_total_capacity": server_total_cap,
-                    "server_existing_load": round(server_existing_load, 1),
-                    "server_new_allocated": round(server_new_allocated, 1),
+                    "external_pre_decision_load": round(external_pre_load, 1),
+                    "own_regional_allocation": round(own_region_flow, 1),
+                    "other_regional_allocations": round(other_regions_flow, 1),
+                    "existing_server_load_before_routing": round(external_pre_load, 1),
+                    "traffic_from_current_region": round(traffic_from_current_region, 1),
+                    "traffic_from_other_regions": round(traffic_from_other_regions, 1),
+                    "total_newly_allocated_traffic": round(total_newly_allocated, 1),
+                    "server_existing_load": round(traffic_from_other_regions, 1),
+                    "server_new_allocated": round(traffic_from_current_region, 1),
                     "server_projected_load": round(server_projected_load, 1),
                     "server_remaining_capacity": round(server_remaining_cap, 1),
                     "server_utilization_pct": round(server_projected_util_pct, 1),
+                    "server_compute_surcharge": round(server_compute_surcharge, 4),
+                    "server_marginal_compute_surcharge": round(server_marginal_compute_cost, 2),
+                    "effective_unit_cost": effective_unit_cost,
+                    "effective_marginal_unit_cost": effective_marginal_cost,
+                    "total_transit_cost": total_transit_cost,
+                    "total_compute_cost": total_compute_cost,
+                    "total_end_to_end_cost": total_end_to_end_cost,
                     "link_base_latency_ms": link_info["base_latency"],
                     "link_congestion_ms": cong_delay,
                     "link_effective_latency_ms": eff_latency,
@@ -650,9 +714,14 @@ class ContinuousSimulationManager:
                         "bandwidth_term": bandwidth_term,
                         "cache_hit_ratio": hit_ratio,
                         "cache_miss_term": cache_miss_term,
+                        "transit_unit_cost": unit_cost,
+                        "server_compute_surcharge": round(server_compute_surcharge, 4),
+                        "server_marginal_surcharge": round(server_marginal_compute_cost, 2),
+                        "effective_unit_cost": effective_unit_cost,
+                        "effective_marginal_cost": effective_marginal_cost,
                         "unit_cost": unit_cost,
                         "scaled_cost": scaled_cost,
-                        "unit": "$ / req (Simulated routing cost points)",
+                        "unit": "pts/req (Multi-factor simulated cost points)",
                         "formula_string": formula_str,
                         "hard_constraints": [
                             f"Server Health: {'Online' if server_healthy else 'Hardware Outage'}",
@@ -662,12 +731,13 @@ class ContinuousSimulationManager:
                         "optimization_terms": [
                             f"Effective Latency (alpha=1.0): {latency_term:.2f} pts",
                             f"Transit Bandwidth Rate (beta=1.5): {bandwidth_term:.2f} pts",
-                            f"Cache Miss Penalty (M=20.0): {cache_miss_term:.2f} pts"
+                            f"Cache Miss Penalty (M=20.0): {cache_miss_term:.2f} pts",
+                            f"Server Compute Congestion Surcharge (Bands 1-4): +{server_compute_surcharge:.2f} pts/req (Marginal: +{server_marginal_compute_cost:.2f})"
                         ],
                         "monitoring_metrics": [
                             f"Projected Server Load: {round(server_projected_load):,} / {round(server_total_cap):,} req/s ({server_projected_util_pct:.1f}%)",
-                            f"Background Network Load: {round(bg_network_util, 1)}%",
-                            f"Pre-Decision Existing Load: {round(server_existing_load):,} req/s"
+                            f"Decomposition: Pre-Decision (0) + Own Region ({round(own_region_flow):,}) + Other Regions ({round(other_regions_flow):,}) = {round(server_projected_load):,} req/s",
+                            f"Background Network Load: {round(bg_network_util, 1)}%"
                         ]
                     },
                     "eligibility": eligibility,
@@ -825,11 +895,13 @@ class ContinuousSimulationManager:
             self.current_demands,
             self.failed_servers,
             self.congestion_spec,
-            routing_result
+            routing_result,
+            self.cache_hit_ratio
         )
 
         # 5. Record snapshot into bounded history for Inspection and Replay
         snapshot = {
+            "snapshot_id": f"snap_t{self.step}_{int(time.time())}",
             "tick": self.step,
             "sim_time_sec": self.sim_time_sec,
             "timestamp": time.time(),
@@ -861,7 +933,10 @@ class ContinuousSimulationManager:
             "type": "LIVE_TICK",
             "data": {
                 "step": self.step,
+                "tick": self.step,
+                "snapshot_id": snapshot["snapshot_id"],
                 "sim_time_sec": self.sim_time_sec,
+                "timestamp": snapshot["timestamp"],
                 "status": self.status,
                 "mode": self.mode,
                 "speed": self.speed,
@@ -869,10 +944,16 @@ class ContinuousSimulationManager:
                 "decision_reason": decision,
                 "demands": self.current_demands,
                 "total_demand": sum(self.current_demands.values()),
-                "failed_servers": self.failed_servers,
+                "failed_servers": list(self.failed_servers),
                 "congestion_spec": self.congestion_spec,
                 "previous_cost": self.previous_cost,
                 "cost_delta": cost_delta,
+                "candidates_by_region": candidates,
+                "new_allocation": routing_result.get("allocations", []),
+                "serverLoads": routing_result.get("serverLoads", {}),
+                "serverUtilPct": routing_result.get("serverUtilPct", {}),
+                "linkLoads": routing_result.get("linkLoads", {}),
+                "linkUtilPct": routing_result.get("linkUtilPct", {}),
                 "routing": routing_result,
             }
         }
@@ -971,12 +1052,28 @@ class ContinuousSimulationManager:
             record_trace=True,
         )
 
+        # Ensure snapshot has an immutable ID and matches trace_result exactly
+        if "snapshot_id" not in snapshot:
+            snapshot["snapshot_id"] = f"snap_t{snapshot['tick']}_{int(snapshot.get('timestamp', time.time()))}"
+
+        snapshot["routing"] = trace_result
+        snapshot["new_allocation"] = trace_result.get("allocations", [])
+        snapshot["serverLoads"] = trace_result.get("serverLoads", {})
+        snapshot["serverUtilPct"] = trace_result.get("serverUtilPct", {})
+        snapshot["linkLoads"] = trace_result.get("linkLoads", {})
+        snapshot["linkUtilPct"] = trace_result.get("linkUtilPct", {})
+        snapshot["origin_spillover"] = trace_result.get("originTrafficRouted", 0.0)
+        snapshot["total_cost"] = trace_result.get("totalRoutingCost", 0.0)
+        snapshot["average_latency"] = trace_result.get("averageLatencyMs", 0.0)
+        snapshot["average_cost_per_req"] = trace_result.get("averageRoutingCostPerReq", 0.0)
+
         # Ensure snapshot contains full candidates matrix for this trace
         snapshot["candidates_by_region"] = self.compute_candidates_matrix(
             snapshot["demands"],
             snapshot["failed_servers"],
             snapshot["congestion_spec"],
-            trace_result
+            trace_result,
+            snapshot.get("cache_hit_ratio")
         )
 
         trace_data = trace_result.get("trace", {
@@ -1030,16 +1127,23 @@ class ContinuousSimulationManager:
             demands,
             failed,
             congestion,
-            trace_result
+            trace_result,
+            self.cache_hit_ratio
         )
 
+        now_ts = time.time()
+        replay_tick = tick if tick is not None else self.step
         return {
-            "tick": tick if tick is not None else self.step,
+            "snapshot_id": f"snap_replay_t{replay_tick}_{int(now_ts)}",
+            "tick": replay_tick,
+            "timestamp": now_ts,
             "strategy": strategy,
             "demands": demands,
             "total_demand": sum(demands.values()),
             "failed_servers": failed,
             "congestion": congestion,
+            "congestion_spec": congestion,
+            "cache_hit_ratio": self.cache_hit_ratio,
             "routing": trace_result,
             "trace": trace_result.get("trace", {}),
             "candidates_by_region": candidates,

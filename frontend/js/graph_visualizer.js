@@ -656,11 +656,6 @@ export const GraphVisualizer = {
         const nodeObj = computedState.nodes.find(n => n.name === nodeName);
         if (nodeObj) {
           this.selectNode(nodeObj, computedState);
-          if (window.Inspector && typeof window.Inspector.renderAllocationProvenance === 'function') {
-            if (nodeObj.name.includes('Server') || nodeObj.name.includes('Origin')) {
-              window.Inspector.renderAllocationProvenance(nodeObj.name);
-            }
-          }
         }
       });
     });
@@ -867,15 +862,6 @@ export const GraphVisualizer = {
   clearCandidatePath() {
     this.activeCandidatePath = null;
     this.renderCurrentStep();
-  },
-
-  highlightServer(serverName) {
-    if (!this.initialNodes) return;
-    const targetNode = this.initialNodes.find(n => n.name === serverName || (serverName && n.name.includes(serverName.replace(' Server', ''))));
-    if (targetNode) {
-      this.selectedElement = { type: 'node', data: targetNode };
-      this.renderCurrentStep();
-    }
   }
 };
 

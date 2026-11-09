@@ -80,15 +80,20 @@ public:
                                 const std::vector<long long>& potentials,
                                 std::vector<long long>& dist,
                                 std::vector<int>& parentNode,
-                                std::vector<int>& parentEdgeIdx);
+                                std::vector<int>& parentEdgeIdx,
+                                std::vector<DijkstraRelaxationDto>* relaxations = nullptr);
 
     /**
      * @brief Updates node potentials using the shortest distances found by Dijkstra.
      * pi'(v) = pi(v) + dist(v) for all reachable nodes.
      * @param potentials Potentials vector to update in-place.
      * @param dist Distance vector computed by Dijkstra.
+     * @param shifts Optional vector to capture structured potential transitions.
+     * @param graph Optional pointer to graph for node metadata resolution.
      */
-    static void updatePotentials(std::vector<long long>& potentials, const std::vector<long long>& dist);
+    static void updatePotentials(std::vector<long long>& potentials, const std::vector<long long>& dist,
+                                 std::vector<PotentialShiftDto>* shifts = nullptr,
+                                 const Graph* graph = nullptr);
 
     /**
      * @brief Augments flow along the shortest path found by Dijkstra.

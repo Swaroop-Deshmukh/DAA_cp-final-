@@ -8,6 +8,7 @@ import { ApiService } from './api.js';
 import { TopologyViewer } from './topology.js';
 import { ServerMonitoring } from './monitoring.js';
 import { EventLogManager } from './logs.js';
+import { ChartManager } from './charts.js';
 
 export const LiveSimulation = {
   socket: null,
@@ -37,8 +38,10 @@ export const LiveSimulation = {
   },
 
   charts: {},
+  lastTickData: null,
 
   init() {
+    window.LiveSimulation = this;
     this.initControls();
     this.initCharts();
     this.connectWebSocket();
@@ -240,6 +243,7 @@ export const LiveSimulation = {
     this.status = data.status;
     this.mode = data.mode;
     this.strategy = data.strategy;
+    this.lastTickData = data;
 
     this.applyStatusUpdate(data);
     this.updateKPIs(data);
@@ -250,6 +254,77 @@ export const LiveSimulation = {
     if (data.routing) {
       TopologyViewer.render(null, data.routing.allocations);
       this.renderLiveTable(data.routing.allocations);
+    }
+
+    // Keep Operations Overview dynamically synchronized in real time
+    this.updateOverviewLive(data);
+  },
+
+  updateOverviewLive(data) {
+    if (!data) return;
+    const demand = data.total_demand || 0;
+    const routing = data.routing || {};
+    const routed = routing.totalTrafficRouted ?? demand;
+    const origin = routing.originTrafficRouted ?? 0;
+    const latency = routing.averageLatencyMs ?? 0;
+    const failed = (data.failed_servers || []);
+    const healthyCount = Math.max(0, 4 - failed.length);
+
+    // 1. Overview KPIs
+    const totalTrafficEl = document.getElementById('kpiTotalTraffic');
+    if (totalTrafficEl) {
+      totalTrafficEl.textContent = `${Math.round(demand).toLocaleString()} req/s`;
+    }
+
+    const avgLatencyEl = document.getElementById('kpiAvgLatency');
+    if (avgLatencyEl) {
+      avgLatencyEl.textContent = `${latency.toFixed(1)} ms`;
+    }
+
+    const edgeRatioEl = document.getElementById('kpiEdgeRatio');
+    if (edgeRatioEl) {
+      const edge = Math.max(0, routed - origin);
+      const edgePct = demand > 0 ? ((edge / demand) * 100).toFixed(0) : 100;
+      edgeRatioEl.textContent = `${edgePct}% Fleet Load`;
+      const footer = edgeRatioEl.nextElementSibling;
+      if (footer) {
+        footer.innerHTML = origin > 0
+          ? `<span class="kpi-delta negative">&uarr; ${Math.round(origin).toLocaleString()} req/s to Origin</span>`
+          : `<span class="kpi-delta neutral">0 req/s to Origin</span>`;
+      }
+    }
+
+    const healthyServersEl = document.getElementById('kpiHealthyServers');
+    if (healthyServersEl) {
+      healthyServersEl.textContent = `${healthyCount} / 4`;
+      const footer = healthyServersEl.nextElementSibling;
+      if (footer) {
+        if (failed.length > 0) {
+          footer.innerHTML = `<span class="kpi-delta negative">&bull; ${failed.join(', ')} Offline</span>`;
+        } else {
+          footer.innerHTML = `<span class="kpi-delta positive">&bull; All POPs Healthy</span>`;
+        }
+      }
+    }
+
+    // 2. Overview Charts
+    if (ChartManager && routing.serverLoads) {
+      const loads = {};
+      const servers = ['Pune Server', 'Mumbai Server', 'Delhi Server', 'Bangalore Server'];
+      for (const s of servers) {
+        loads[s] = routing.serverLoads[s] || 0;
+      }
+      ChartManager.updateOverviewTraffic(loads, origin);
+    }
+
+    if (ChartManager && routing.regionalLatencies) {
+      ChartManager.updateOverviewLatency(routing.regionalLatencies);
+    } else if (ChartManager && data.demands) {
+      const baseLatencies = { Pune: 9.5, Mumbai: 7.5, Delhi: 10.5, Bangalore: 8.9, Hyderabad: 21.0 };
+      if (data.mode === 'stress' || (data.congestion_spec && data.congestion_spec.includes('Pune'))) {
+        baseLatencies.Pune = 35.0 + 9.5;
+      }
+      ChartManager.updateOverviewLatency(baseLatencies);
     }
   },
 
